@@ -83,14 +83,14 @@
 
 ## 阶段 5：RAG 管线
 
-- ⬜ 31. (测试) `electron/services/rag/chunker.test.ts` — 按长度切分、charStart/charEnd 偏移正确、边界。
-- ⬜ 32. (实现) `electron/services/rag/chunker.ts` — 文本切分。
-- ⬜ 33. (测试) `electron/services/rag/embedder.test.ts` — 批量调云端嵌入 API（打桩）、返回向量、失败处理。
-- ⬜ 34. (实现) `electron/services/rag/embedder.ts` — 嵌入向量生成。
-- ⬜ 35. (测试) `electron/services/rag/retriever.test.ts` — chunk_vec KNN 取 TopK、与 FTS5 融合、空结果、**按 scope 的 documentIds 过滤候选**。
-- ⬜ 36. (实现) `electron/services/rag/retriever.ts` — 向量检索（支持 documentIds 范围过滤）。
-- ⬜ 37. (测试) `electron/services/rag/prompt.test.ts` — 拼装「仅依据片段/无依据答未找到/需来源」约束、空上下文。
-- ⬜ 38. (实现) `electron/services/rag/prompt.ts` — 提示构造。
+- ✅ 31. (测试) `electron/services/rag/chunker.test.ts` — 按长度切分、charStart/charEnd 偏移正确、边界。
+- ✅ 32. (实现) `electron/services/rag/chunker.ts` — 文本切分。
+- ✅ 33. (测试) `electron/services/rag/embedder.test.ts` — 批量调云端嵌入 API（打桩）、返回向量、失败处理。
+- ✅ 34. (实现) `electron/services/rag/embedder.ts` — 嵌入向量生成。
+- ✅ 35. (测试) `electron/services/rag/retriever.test.ts` — chunk_vec KNN 取 TopK、与 FTS5 融合、空结果、**按 scope 的 documentIds 过滤候选**。
+- ✅ 36. (实现) `electron/services/rag/retriever.ts` — 向量检索（支持 documentIds 范围过滤）。
+- ✅ 37. (测试) `electron/services/rag/prompt.test.ts` — 拼装「仅依据片段/无依据答未找到/需来源」约束、空上下文。
+- ✅ 38. (实现) `electron/services/rag/prompt.ts` — 提示构造。
 
 ---
 
@@ -229,5 +229,5 @@
 ### 进度概览
 
 - 前置 Setup：6 / 6 ✅
-- TDD 主任务：30 / 108（测试 15 / 实现 15）—— 阶段 0–4 完成；新增阶段 14/15（任务 101–108）待办
+- TDD 主任务：38 / 108（测试 19 / 实现 19）—— 阶段 0–5 完成；新增阶段 14/15（任务 101–108）待办
 - 验收回归：0 / 3
