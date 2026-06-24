@@ -1,21 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { TreeNode } from '@shared/types'
+import type { TreeNode, Document, DocType } from '@shared/types'
 import { isOk } from '@shared/types'
 import { folderApi } from './api/folder.api'
+import { documentApi } from './api/document.api'
 import { searchApi } from './api/search.api'
 import { settingsApi } from './api/settings.api'
+import { crawlApi } from './api/crawl.api'
 import { chatApi } from './api/chat.api'
 import { useTreeStore } from './stores/tree.store'
 import { useChatStore } from './stores/chat.store'
+import { useEditorStore } from './stores/editor.store'
 import { FolderTree } from './components/tree/FolderTree'
+import { DocViewer } from './components/viewer/DocViewer'
+import { DocEditor } from './components/editor/DocEditor'
 import { SearchPanel } from './components/search/SearchPanel'
 import { ChatPanel } from './components/chat/ChatPanel'
+import { AddWebDialog } from './components/crawl/AddWebDialog'
 
 type Turn = { kind: 'user'; id: string; content: string } | { kind: 'assistant'; id: string }
+type DocListItem = { id: string; name: string; type: DocType }
 
 function flattenFolders(nodes: TreeNode[]): TreeNode[] {
   return nodes.flatMap((n) => [n, ...flattenFolders(n.children)])
 }
+
+const isEditable = (type: DocType) => type !== 'pdf'
 
 export function App() {
   const [tree, setTree] = useState<TreeNode[]>([])
@@ -24,16 +33,28 @@ export function App() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [convo, setConvo] = useState<Turn[]>([])
 
+  const [folderId, setFolderId] = useState<string | null>(null)
+  const [docs, setDocs] = useState<DocListItem[]>([])
+  const [openDoc, setOpenDoc] = useState<Document | null>(null)
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [showWeb, setShowWeb] = useState(false)
+
   const expanded = useTreeStore((s) => s.expanded)
   const toggle = useTreeStore((s) => s.toggle)
-  const select = useTreeStore((s) => s.select)
-
   const streaming = useChatStore((s) => s.streaming)
   const sources = useChatStore((s) => s.sources)
   const error = useChatStore((s) => s.error)
+  const draft = useEditorStore((s) => s.draft)
+  const dirty = useEditorStore((s) => s.dirty)
+
+  const refreshTree = () => folderApi.tree().then((r) => isOk(r) && setTree(r.data))
+  const loadDocs = (fid: string | null) =>
+    documentApi.listByFolder(fid).then((r) => isOk(r) && setDocs(r.data as DocListItem[]))
 
   useEffect(() => {
-    void folderApi.tree().then((r) => isOk(r) && setTree(r.data))
+    void refreshTree()
+    void loadDocs(null)
     void settingsApi.getPrivacyNotice().then((r) => isOk(r) && setPrivacy(r.data.text))
     void chatApi.createSession().then((r) => isOk(r) && setSessionId(r.data.id))
 
@@ -66,6 +87,43 @@ export function App() {
     }
   }, [])
 
+  const selectFolder = (id: string) => {
+    setFolderId(id)
+    setOpenDoc(null)
+    void loadDocs(id)
+  }
+
+  const openDocument = async (id: string) => {
+    const r = await documentApi.get(id)
+    if (!isOk(r)) return
+    setOpenDoc(r.data)
+    setEditing(false)
+    useEditorStore.getState().open(r.data.id, r.data.contentText)
+    if (r.data.type === 'pdf') {
+      const f = await documentApi.getFileUrl(id)
+      setFileUrl(isOk(f) ? f.data : null)
+    } else {
+      setFileUrl(null)
+    }
+  }
+
+  const saveDoc = async () => {
+    if (!openDoc) return
+    const r = await documentApi.updateContent(openDoc.id, draft)
+    if (isOk(r)) {
+      useEditorStore.getState().markSaved()
+      setOpenDoc({ ...openDoc, contentText: draft })
+      setEditing(false)
+    }
+  }
+
+  const createNew = async () => {
+    const name = window.prompt('新文档名称')
+    if (!name) return
+    const r = await documentApi.createDoc({ name, folderId, contentText: '' })
+    if (isOk(r)) void loadDocs(folderId)
+  }
+
   const scopeOptions = useMemo(
     () => flattenFolders(tree).map((f) => ({ id: f.id, name: f.name, kind: 'folder' as const })),
     [tree]
@@ -78,8 +136,7 @@ export function App() {
   )
 
   const onAsk = async (question: string, scope: { documentIds: string[]; folderIds: string[] }) => {
-    const uid = globalThis.crypto.randomUUID()
-    setConvo((c) => [...c, { kind: 'user', id: uid, content: question }])
+    setConvo((c) => [...c, { kind: 'user', id: globalThis.crypto.randomUUID(), content: question }])
     if (!sessionId) return
     useChatStore.getState().setError('')
     await chatApi.ask({ sessionId, question, scope })
@@ -98,20 +155,80 @@ export function App() {
             nodes={tree}
             expanded={expanded}
             onToggle={toggle}
-            onSelect={select}
-            onDelete={(id) => folderApi.delete(id)}
+            onSelect={selectFolder}
+            onDelete={(id) => folderApi.delete(id).then(() => refreshTree())}
           />
           <SearchPanel
             onSearch={async (q) => {
               const r = await searchApi.keyword({ query: q })
               return isOk(r) ? r.data : []
             }}
-            onOpenHit={(hit) => select(hit.documentId)}
+            onOpenHit={(hit) => void openDocument(hit.documentId)}
           />
         </aside>
 
         <main data-testid="pane-main" className="pane main">
-          <p className="empty">选择左侧文档以预览</p>
+          <div className="toolbar">
+            <button onClick={createNew}>新建</button>
+            <button onClick={() => setShowWeb(true)}>添加网页</button>
+          </div>
+
+          {showWeb && (
+            <AddWebDialog
+              onCrawl={(url) => crawlApi.fromUrl({ url, folderId })}
+              onInteractiveCrawl={(url) => crawlApi.fromUrlInteractive({ url, folderId })}
+              onClose={() => {
+                setShowWeb(false)
+                void loadDocs(folderId)
+              }}
+            />
+          )}
+
+          {openDoc ? (
+            <div className="doc-open">
+              <div className="doc-header">
+                <span className="doc-name">{openDoc.name}</span>
+                {isEditable(openDoc.type) && !editing && (
+                  <button onClick={() => setEditing(true)}>编辑</button>
+                )}
+                <button
+                  onClick={() => {
+                    setOpenDoc(null)
+                    useEditorStore.getState().close()
+                  }}
+                >
+                  返回
+                </button>
+              </div>
+              {editing && isEditable(openDoc.type) ? (
+                <DocEditor
+                  value={draft}
+                  dirty={dirty}
+                  editable
+                  onChange={(v) => useEditorStore.getState().setDraft(v)}
+                  onSave={saveDoc}
+                />
+              ) : (
+                <DocViewer
+                  doc={{
+                    type: openDoc.type,
+                    name: openDoc.name,
+                    contentText: openDoc.contentText,
+                    fileUrl
+                  }}
+                />
+              )}
+            </div>
+          ) : (
+            <ul className="doc-list">
+              {docs.map((d) => (
+                <li key={d.id} onClick={() => void openDocument(d.id)}>
+                  {d.name}
+                </li>
+              ))}
+              {docs.length === 0 && <p className="empty">该目录暂无文档</p>}
+            </ul>
+          )}
         </main>
 
         <section data-testid="pane-chat" className="pane chat">
@@ -120,7 +237,7 @@ export function App() {
             sources={sources}
             scopeOptions={scopeOptions}
             onAsk={onAsk}
-            onOpenSource={(documentId) => select(documentId)}
+            onOpenSource={(documentId) => void openDocument(documentId)}
             error={error}
           />
         </section>
