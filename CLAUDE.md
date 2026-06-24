@@ -61,10 +61,17 @@ feature/    spec.md / plan.md / tasks.md
 
 ---
 
-## 常用命令（工程脚手架就绪后，见 tasks.md S1）
+## 常用命令
 ```bash
-rtk pnpm install
-rtk pnpm dev          # 启动 Electron + Vite 开发
-rtk vitest            # 跑测试（失败优先）
-rtk pnpm build        # electron-builder 打包
+rtk pnpm install      # 安装依赖（构建脚本经 pnpm.onlyBuiltDependencies 放行，含 better-sqlite3）
+rtk pnpm dev          # 启动应用（会先 install-app-deps 把原生模块按 Electron ABI 重编）
+rtk pnpm test         # 跑测试（Node ABI）
+rtk pnpm build        # electron-vite 三端打包
 ```
+
+### 原生模块双 ABI（重要）
+`better-sqlite3` 是原生模块，**Node（测试用，ABI 127）与 Electron（运行用，ABI 130）ABI 不同**，同一份 `.node` 只能服务其一：
+- 跑应用：`pnpm dev` 已链式执行 `electron-builder install-app-deps`（= `pnpm rebuild:electron`）自动按 Electron ABI 重编。
+- 跑测试：需 Node ABI。若刚跑过应用导致测试报 `NODE_MODULE_VERSION` 不匹配，执行 `pnpm rebuild:node` 恢复。
+- `pnpm install` 后默认是 Node ABI（测试可直接跑）。
+另：`pdfjs-dist` 为 ESM-only，主进程以动态 `import()` 加载（见 `electron/services/parse/pdf.parser.ts`）。

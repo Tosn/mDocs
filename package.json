@@ -5,12 +5,14 @@
   "main": "out/main/index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "electron-builder install-app-deps && electron-vite dev",
     "build": "electron-vite build",
-    "preview": "electron-vite preview",
+    "preview": "electron-builder install-app-deps && electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "rebuild:electron": "electron-builder install-app-deps",
+    "rebuild:node": "npm rebuild better-sqlite3",
     "dist": "electron-vite build && electron-builder"
   },
   "dependencies": {
