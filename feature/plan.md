@@ -49,7 +49,8 @@
 │   ├─ document / folder / trash   ──► db (SQLite + FTS5 + sqlite-vec)    │
 │   ├─ search                      ──► FTS5                              │
 │   ├─ crawl (readability+turndown)──► 文件落盘 + 入库                    │
-│   ├─ rag (chunk→embed→retrieve)  ──► 嵌入API + 向量检索                 │
+│   │    └─ 交互式登录爬取：主进程开 BrowserWindow 复用会话，登录后抓当前页 │
+│   ├─ rag (chunk→embed→retrieve)  ──► 嵌入API + 向量检索（可按 @范围 过滤）│
 │   ├─ llm (provider registry)     ──► 各厂商模型（流式）                  │
 │   └─ credential (safeStorage)    ──► OS 凭证区                          │
 │  startup/trash-gc：启动时清理过期回收站                                 │
@@ -80,6 +81,7 @@ mDocs/
 │   │   ├── trash.service.ts
 │   │   ├── search.service.ts
 │   │   ├── crawl.service.ts
+│   │   ├── crawl-login.service.ts # 交互式登录爬取（BrowserWindow + 手动抓取）
 │   │   ├── credential.service.ts
 │   │   ├── parse/                 # 文档解析 → 纯文本
 │   │   │   ├── index.ts           # 按类型分发
@@ -89,7 +91,8 @@ mDocs/
 │   │   ├── rag/
 │   │   │   ├── chunker.ts         # 切分
 │   │   │   ├── embedder.ts        # 调云端嵌入 API
-│   │   │   ├── retriever.ts       # 向量 KNN + 可选关键词融合
+│   │   │   ├── retriever.ts       # 向量 KNN + 可选关键词融合（可按 @范围 过滤）
+│   │   │   ├── scope.ts           # @文件/@文件夹 范围解析（文件夹递归展开）
 │   │   │   └── prompt.ts          # 拼装带来源约束的提示
 │   │   └── llm/
 │   │       ├── registry.ts        # 厂商/模型注册表
@@ -109,7 +112,8 @@ mDocs/
 │   │   ├── viewer/                # md/txt/pdf 预览
 │   │   ├── editor/                # CodeMirror 编辑 + 未保存拦截
 │   │   ├── search/                # 搜索框 + 结果列表
-│   │   ├── chat/                  # 对话气泡、来源标注、流式渲染
+│   │   ├── chat/                  # 对话气泡、来源标注、流式渲染、@范围选择器
+│   │   ├── crawl/                 # 添加网页对话框（普通 / 需登录交互）
 │   │   └── settings/              # 模型选择 + API Key 弹框 + 隐私告知
 │   ├── api/                       # 封装 window.api.*（按域）
 │   ├── stores/                    # zustand：tree / editor / chat / settings
@@ -288,6 +292,8 @@ interface ImportReport { added: number; skipped: number; failed: number; }
 ```ts
 fromUrl(input: { url: string; folderId: string | null }):
   Promise<Result<Document>>;   // 抽正文→md（含图片）→落盘→入库；失败返回明确 error.code
+fromUrlInteractive(input: { url: string; folderId: string | null }):
+  Promise<Result<Document>>;   // 需登录场景：开内置窗口，用户登录/导航后「抓取当前页」→md 入库；取消→error
 ```
 
 ### 5.4 搜索 `window.api.search`
@@ -318,8 +324,10 @@ purge(id: string): Promise<Result<void>>;            // 主动彻底删除（需
 listSessions(): Promise<Result<ChatSession[]>>;
 createSession(): Promise<Result<ChatSession>>;
 getMessages(sessionId: string): Promise<Result<ChatMessage[]>>;
-ask(input: { sessionId: string; question: string }):
+ask(input: { sessionId: string; question: string;
+  scope?: { documentIds?: string[]; folderIds?: string[] } }):
   Promise<Result<{ messageId: string }>>;            // 触发流式回答，token 经事件推送
+                                                     // scope：@范围（文件/文件夹），缺省=全库（spec E6）
 ```
 
 流式与进度通过**事件通道**（主→渲染 `webContents.send`）：
@@ -350,10 +358,11 @@ getPrivacyNotice(): Promise<Result<{ text: string }>>;     // 隐私告知文案
 ## 6. RAG 问答管线（spec E1–E3）
 
 1. **入库时**：解析 → `contentText` → `chunker` 切分 → `embedder` 调云端嵌入 API → 写 `chunk_vec`，更新 `indexedAt`。
-2. **提问时**：问题向量化 → `retriever` 在 `chunk_vec` 做 KNN（可与 FTS5 关键词召回做轻量融合）→ 取 Top-K chunk。
-3. **生成时**：`prompt` 拼装「仅依据给定片段回答；无依据须回答未找到；需给出来源」的约束上下文 → 调 LLM 流式输出。
-4. **来源标注**：把命中 chunk 落 `MessageSource`，前端经 `chat:sources` 渲染可点击来源，点击经 `charStart` 跳转预览定位。
-5. **边界**：空库 → 直接提示「请先添加文档」；无召回 → 明确「未在文档中找到相关内容」；模型未配置/超时 → `chat:error` + 重试入口。
+2. **范围解析（spec E6）**：若 `ask` 带 `scope` → `rag/scope.ts` 把 `folderIds` 递归展开为 `documentIds`（合并 `scope.documentIds`、剔除已删除文档）；无 scope 则不限定（全库）。
+3. **提问时**：问题向量化 → `retriever` 在 `chunk_vec` 做 KNN（可与 FTS5 关键词召回做轻量融合，**并按范围内的 documentIds 过滤候选**）→ 取 Top-K chunk。
+4. **生成时**：`prompt` 拼装「仅依据给定片段回答；无依据须回答未找到；需给出来源」的约束上下文 → 调 LLM 流式输出。
+5. **来源标注**：把命中 chunk 落 `MessageSource`，前端经 `chat:sources` 渲染可点击来源，点击经 `charStart` 跳转预览定位。
+6. **边界**：空库 → 直接提示「请先添加文档」；无召回（含 @范围内无答案）→ 明确「未在文档中找到相关内容」；@范围为空 → 提示范围为空；模型未配置/超时 → `chat:error` + 重试入口。
 
 ---
 
@@ -377,13 +386,15 @@ getPrivacyNotice(): Promise<Result<{ text: string }>>;     // 隐私告知文案
 - FTS5 索引随入库/编辑同步；搜索框 + 结果列表 + 命中跳转 + 空状态；离线可用。
 - 验收：spec D1 通过；断网下可搜索。
 
-### 阶段 4：AI 问答与模型设置（E1–E5）
+### 阶段 4：AI 问答与模型设置（E1–E6）
 - 模型注册表 + 设置面板 + 切换弹 Key（回填掩码）+ safeStorage；隐私告知；chunk/embed/retrieve 管线；流式对话 + 来源标注 + 无答案/超时处理；启动默认沿用上次模型。
-- 验收：spec E1–E5 通过。
+- **@范围（E6）**：`rag/scope.ts` 解析 + retriever 按 documentIds 过滤 + ChatPanel 的 @文件/@文件夹 选择器。
+- 验收：spec E1–E6 通过。
 
 ### 阶段 5：网页爬取入库（A4）
 - readability 抽正文 + turndown 转 md + 图片保留 + 原链接留存；失败明确提示、不落空文档。
-- 验收：spec A4 通过。
+- **需登录（A4）**：`crawl-login.service.ts` 开内置 `BrowserWindow`，用户登录/导航后「抓取当前页」→ 复用 html→md→入库；取消不落空文档。
+- 验收：spec A4 通过（含需登录场景）。
 
 ### 阶段 6：删除 / 回收站 + 启动清理（B3）
 - 删除二次确认 → 入回收站；恢复（含原父级缺失兜底）；主动彻底删除；`startup/trash-gc` 启动清过期项。

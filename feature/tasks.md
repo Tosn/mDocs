@@ -54,12 +54,12 @@
 
 ## 阶段 2：核心服务（目录 / 文档 / 搜索）
 
-- ⬜ 19. (测试) `electron/services/folder.service.test.ts` — create/list/tree、重名与非法名拒绝、delete 入回收站（含子项）。
-- ⬜ 20. (实现) `electron/services/folder.service.ts` — 文件夹业务逻辑。
-- ⬜ 21. (测试) `electron/services/document.service.test.ts` — upload（文件或文件夹、冲突策略）、importFolder（跳过/汇总/可取消）、createDoc、updateContent、rename、delete。
-- ⬜ 22. (实现) `electron/services/document.service.ts` — 文档业务逻辑（含内容指纹与索引标记）。
-- ⬜ 23. (测试) `electron/services/search.service.test.ts` — FTS5 关键词返回命中+snippet+charStart、空查询、离线。
-- ⬜ 24. (实现) `electron/services/search.service.ts` — 关键词搜索（FTS5）。
+- ✅ 19. (测试) `electron/services/folder.service.test.ts` — create/list/tree、重名与非法名拒绝、delete 入回收站（含子项）。
+- ✅ 20. (实现) `electron/services/folder.service.ts` — 文件夹业务逻辑。
+- ✅ 21. (测试) `electron/services/document.service.test.ts` — upload（文件或文件夹、冲突策略）、importFolder（跳过/汇总/可取消）、createDoc、updateContent、rename、delete。
+- ✅ 22. (实现) `electron/services/document.service.ts` — 文档业务逻辑（含内容指纹与索引标记）。
+- ✅ 23. (测试) `electron/services/search.service.test.ts` — FTS5 关键词返回命中+snippet+charStart、空查询、离线。
+- ✅ 24. (实现) `electron/services/search.service.ts` — 关键词搜索（FTS5）。
 
 ---
 
@@ -87,8 +87,8 @@
 - ⬜ 32. (实现) `electron/services/rag/chunker.ts` — 文本切分。
 - ⬜ 33. (测试) `electron/services/rag/embedder.test.ts` — 批量调云端嵌入 API（打桩）、返回向量、失败处理。
 - ⬜ 34. (实现) `electron/services/rag/embedder.ts` — 嵌入向量生成。
-- ⬜ 35. (测试) `electron/services/rag/retriever.test.ts` — chunk_vec KNN 取 TopK、与 FTS5 融合、空结果。
-- ⬜ 36. (实现) `electron/services/rag/retriever.ts` — 向量检索。
+- ⬜ 35. (测试) `electron/services/rag/retriever.test.ts` — chunk_vec KNN 取 TopK、与 FTS5 融合、空结果、**按 scope 的 documentIds 过滤候选**。
+- ⬜ 36. (实现) `electron/services/rag/retriever.ts` — 向量检索（支持 documentIds 范围过滤）。
 - ⬜ 37. (测试) `electron/services/rag/prompt.test.ts` — 拼装「仅依据片段/无依据答未找到/需来源」约束、空上下文。
 - ⬜ 38. (实现) `electron/services/rag/prompt.ts` — 提示构造。
 
@@ -100,8 +100,8 @@
 - ⬜ 40. (实现) `electron/services/llm/registry.ts` — 模型注册表。
 - ⬜ 41. (测试) `electron/services/llm/provider.test.ts` — 流式 chat 产出 token（打桩）、embed 调用、错误/超时。
 - ⬜ 42. (实现) `electron/services/llm/provider.ts` — 多厂商统一调用封装。
-- ⬜ 43. (测试) `electron/services/chat.service.test.ts` — ask：空库→提示、无召回→「未找到」、流式 token、落 MessageSource、持久化消息。
-- ⬜ 44. (实现) `electron/services/chat.service.ts` — 问答编排（检索→提示→流式→来源）。
+- ⬜ 43. (测试) `electron/services/chat.service.test.ts` — ask：空库→提示、无召回→「未找到」、流式 token、落 MessageSource、持久化消息、**应用 scope 限定范围（含范围为空提示）**。
+- ⬜ 44. (实现) `electron/services/chat.service.ts` — 问答编排（scope 解析→检索→提示→流式→来源）。
 
 ---
 
@@ -122,8 +122,8 @@
 - ⬜ 52. (实现) `electron/ipc/search.ipc.ts` — 搜索 IPC。
 - ⬜ 53. (测试) `electron/ipc/trash.ipc.test.ts` — list/restore/purge 通道。
 - ⬜ 54. (实现) `electron/ipc/trash.ipc.ts` — 回收站 IPC。
-- ⬜ 55. (测试) `electron/ipc/crawl.ipc.test.ts` — fromUrl 通道与错误码透传。
-- ⬜ 56. (实现) `electron/ipc/crawl.ipc.ts` — 爬取 IPC。
+- ⬜ 55. (测试) `electron/ipc/crawl.ipc.test.ts` — fromUrl / **fromUrlInteractive** 通道与错误码透传。
+- ⬜ 56. (实现) `electron/ipc/crawl.ipc.ts` — 爬取 IPC（含交互式登录爬取）。
 - ⬜ 57. (测试) `electron/ipc/chat.ipc.test.ts` — ask 触发、chat:token/sources/done/error 事件转发。
 - ⬜ 58. (实现) `electron/ipc/chat.ipc.ts` — 对话 IPC。
 - ⬜ 59. (测试) `electron/ipc/settings.ipc.test.ts` — listModels/switchModel(回填掩码)/saveModel/testModel/隐私文案。
@@ -150,10 +150,10 @@
 - ⬜ 70. (实现) `src/api/search.api.ts` — 搜索 API 封装。
 - ⬜ 71. (测试) `src/api/trash.api.test.ts` — 回收站 API。
 - ⬜ 72. (实现) `src/api/trash.api.ts` — 回收站 API 封装。
-- ⬜ 73. (测试) `src/api/crawl.api.test.ts` — 爬取 API。
-- ⬜ 74. (实现) `src/api/crawl.api.ts` — 爬取 API 封装。
-- ⬜ 75. (测试) `src/api/chat.api.test.ts` — 对话 API + 流式事件回调。
-- ⬜ 76. (实现) `src/api/chat.api.ts` — 对话 API 封装。
+- ⬜ 73. (测试) `src/api/crawl.api.test.ts` — 爬取 API（fromUrl / fromUrlInteractive）。
+- ⬜ 74. (实现) `src/api/crawl.api.ts` — 爬取 API 封装（含交互式登录爬取）。
+- ⬜ 75. (测试) `src/api/chat.api.test.ts` — 对话 API + 流式事件回调 + **ask 透传 scope**。
+- ⬜ 76. (实现) `src/api/chat.api.ts` — 对话 API 封装（透传 scope）。
 - ⬜ 77. (测试) `src/api/settings.api.test.ts` — 设置 API。
 - ⬜ 78. (实现) `src/api/settings.api.ts` — 设置 API 封装。
 
@@ -182,8 +182,8 @@
 - ⬜ 92. (实现) `src/components/editor/DocEditor.tsx` — 编辑组件。
 - ⬜ 93. (测试) `src/components/search/SearchPanel.test.tsx` — 结果列表、命中跳转、空状态。
 - ⬜ 94. (实现) `src/components/search/SearchPanel.tsx` — 搜索面板。
-- ⬜ 95. (测试) `src/components/chat/ChatPanel.test.tsx` — 流式渲染、来源可点击跳转、空库/无答案/超时提示。
-- ⬜ 96. (实现) `src/components/chat/ChatPanel.tsx` — 对话面板。
+- ⬜ 95. (测试) `src/components/chat/ChatPanel.test.tsx` — 流式渲染、来源可点击跳转、空库/无答案/超时提示、**@文件/@文件夹 选择器并随提问带 scope**。
+- ⬜ 96. (实现) `src/components/chat/ChatPanel.tsx` — 对话面板（含 @范围选择器）。
 - ⬜ 97. (测试) `src/components/settings/SettingsPanel.test.tsx` — 模型选择、切换弹 Key 框回填掩码、隐私告知、默认沿用上次模型。
 - ⬜ 98. (实现) `src/components/settings/SettingsPanel.tsx` — 设置面板。
 
@@ -196,15 +196,38 @@
 
 ---
 
+## 阶段 14：@问答范围（需求 1，spec E6）
+
+> 与阶段 4 一起做；retriever/chat/api/ChatPanel 的范围接线已并入任务 35/36、43/44、75/76、95/96 的描述。
+
+- ⬜ 101. (测试) `electron/services/rag/scope.test.ts` — resolveScope：@文件→对应文档；@文件夹→递归其下文档；空范围→null（=全库）；排除已删除文档。
+- ⬜ 102. (实现) `electron/services/rag/scope.ts` — 范围解析（导出 `ChatScope` 类型与 `resolveScope(db, scope)`）。
+
+---
+
+## 阶段 15：登录网页爬取（需求 2，spec A4）
+
+> 与阶段 5 一起做；crawl.ipc / crawl.api 的接线已并入任务 55/56、73/74 的描述。
+
+- ⬜ 103. (测试) `shared/channels.test.ts` — 断言新增 `crawl.fromUrlInteractive` 通道存在且唯一。
+- ⬜ 104. (实现) `shared/channels.ts` — 增加 `crawl.fromUrlInteractive` 通道名。
+- ⬜ 105. (测试) `electron/services/crawl-login.service.test.ts` — 打桩 `BrowserWindow`：开窗口→用户「抓取当前页」→取渲染 HTML→复用 crawl 的 html→md→入库；取消→明确 error、不落空文档。
+- ⬜ 106. (实现) `electron/services/crawl-login.service.ts` — 交互式登录爬取编排（复用 `crawl.service` 的 html→md→入库）。
+- ⬜ 107. (测试) `src/components/crawl/AddWebDialog.test.tsx` — 输入 URL；普通抓取 vs 需登录走交互窗口；失败/取消提示。
+- ⬜ 108. (实现) `src/components/crawl/AddWebDialog.tsx` — 添加网页对话框。
+
+---
+
 ## 验收回归（手动核对，无新文件）
 
-- ⬜ R1. 按 `spec.md` 第 5 章逐条用户故事验收（A1–A4 / B1–B3 / C1–C2 / D1 / E1–E5）。
-- ⬜ R2. 按 `spec.md` 第 6 章逐条边界情况核对（含无网降级、回收站启动清理、网页爬取失败）。
+- ⬜ R1. 按 `spec.md` 第 5 章逐条用户故事验收（A1–A4 / B1–B3 / C1–C2 / D1 / E1–E6）。
+- ⬜ R2. 按 `spec.md` 第 6 章逐条边界情况核对（含无网降级、回收站启动清理、网页爬取失败、**@范围失效、登录爬取中断**）。
+- ⬜ R3. 手动验收：@文件/@文件夹 限定问答范围；需登录网页的内置窗口登录后抓取当前页。
 
 ---
 
 ### 进度概览
 
 - 前置 Setup：6 / 6 ✅
-- TDD 主任务：18 / 100（测试 9 / 实现 9）—— 阶段 0–1 完成
-- 验收回归：0 / 2
+- TDD 主任务：24 / 108（测试 12 / 实现 12）—— 阶段 0–2 完成；新增阶段 14/15（任务 101–108）待办
+- 验收回归：0 / 3
