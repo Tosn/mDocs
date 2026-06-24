@@ -67,17 +67,17 @@
 
 > 预览读取走 `document.get/getFileUrl`（已在阶段 2）；本阶段补编辑保存的索引同步校验。
 
-- ⬜ 25. (测试) `electron/services/trash.service.test.ts` — list、restore（原父级缺失→默认位置）、purge。
-- ⬜ 26. (实现) `electron/services/trash.service.ts` — 回收站业务逻辑。
-- ⬜ 27. (测试) `electron/services/credential.service.test.ts` — save/get/掩码（safeStorage 打桩），keyRef 引用。
-- ⬜ 28. (实现) `electron/services/credential.service.ts` — API Key 安全存取。
+- ✅ 25. (测试) `electron/services/trash.service.test.ts` — list、restore（原父级缺失→默认位置）、purge。
+- ✅ 26. (实现) `electron/services/trash.service.ts` — 回收站业务逻辑。
+- ✅ 27. (测试) `electron/services/credential.service.test.ts` — save/get/掩码（safeStorage 打桩），keyRef 引用。
+- ✅ 28. (实现) `electron/services/credential.service.ts` — API Key 安全存取。
 
 ---
 
 ## 阶段 4：网页爬取
 
-- ⬜ 29. (测试) `electron/services/crawl.service.test.ts` — html→md（readability+turndown 打桩）、图片保留、无效/空/超时→明确错误码、不落空文档。
-- ⬜ 30. (实现) `electron/services/crawl.service.ts` — 抽正文→md→落盘→入库。
+- ✅ 29. (测试) `electron/services/crawl.service.test.ts` — html→md（readability+turndown 打桩）、图片保留、无效/空/超时→明确错误码、不落空文档。
+- ✅ 30. (实现) `electron/services/crawl.service.ts` — 抽正文→md→落盘→入库。
 
 ---
 
@@ -229,5 +229,5 @@
 ### 进度概览
 
 - 前置 Setup：6 / 6 ✅
-- TDD 主任务：24 / 108（测试 12 / 实现 12）—— 阶段 0–2 完成；新增阶段 14/15（任务 101–108）待办
+- TDD 主任务：30 / 108（测试 15 / 实现 15）—— 阶段 0–4 完成；新增阶段 14/15（任务 101–108）待办
 - 验收回归：0 / 3
