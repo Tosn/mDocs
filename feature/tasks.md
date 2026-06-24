@@ -15,40 +15,40 @@
 
 ## 前置 Setup（脚手架，无单测）
 
-- ⬜ S1. `package.json` — 依赖与脚本（electron、vite、react、ts、vitest、better-sqlite3、sqlite-vec、pdfjs-dist、@mozilla/readability、turndown、ai SDK 等）。
-- ⬜ S2. `electron.vite.config.ts` — 主/预加载/渲染三构建配置。
-- ⬜ S3. `tsconfig.json` — 路径别名（electron/ src/ shared/）与编译选项。
-- ⬜ S4. `vitest.config.ts` — 测试环境（node + jsdom 分项目）、覆盖率。
-- ⬜ S5. `tailwind.config.ts` + `postcss.config.js` — 样式管线。
-- ⬜ S6. `electron-builder.yml` — 打包配置。
+- ✅ S1. `package.json` — 依赖与脚本（electron、vite、react、ts、vitest、better-sqlite3、sqlite-vec、pdfjs-dist、@mozilla/readability、turndown、ai SDK 等）。
+- ✅ S2. `electron.vite.config.ts` — 主/预加载/渲染三构建配置。
+- ✅ S3. `tsconfig.json` — 路径别名（electron/ src/ shared/）与编译选项。
+- ✅ S4. `vitest.config.ts` — 测试环境（node + jsdom 分项目）、覆盖率。
+- ✅ S5. `tailwind.config.ts` + `postcss.config.js` — 样式管线。
+- ✅ S6. `electron-builder.yml` — 打包配置。
 
 ---
 
 ## 阶段 0：共享契约与数据库
 
-- ⬜ 1. (测试) `shared/types.test.ts` — 校验 `ok()/err()/isOk()/isErr()` 行为与 `Result<T>` 守卫。
-- ⬜ 2. (实现) `shared/types.ts` — 实体/DTO 类型 + `Result<T>` 与 `ok/err/isOk/isErr` 助手。
-- ⬜ 3. (测试) `shared/channels.test.ts` — 断言所有通道名唯一、键齐全（7 域 + 事件通道）。
-- ⬜ 4. (实现) `shared/channels.ts` — IPC 通道名常量集中定义。
-- ⬜ 5. (测试) `electron/db/schema.test.ts` — 内存库应用 schema 后，表/虚拟表/索引齐全。
-- ⬜ 6. (实现) `electron/db/schema.ts` — 表、FTS5、sqlite-vec 虚拟表与索引 DDL。
-- ⬜ 7. (测试) `electron/db/migrations/001_init.test.ts` — 迁移 up 建库、版本号写入、可重复执行。
-- ⬜ 8. (实现) `electron/db/migrations/001_init.ts` — 首版迁移脚本。
-- ⬜ 9. (测试) `electron/db/index.test.ts` — `openDb()` 幂等执行迁移并返回连接。
-- ⬜ 10. (实现) `electron/db/index.ts` — 连接、加载 sqlite-vec、运行迁移。
+- ✅ 1. (测试) `shared/types.test.ts` — 校验 `ok()/err()/isOk()/isErr()` 行为与 `Result<T>` 守卫。
+- ✅ 2. (实现) `shared/types.ts` — 实体/DTO 类型 + `Result<T>` 与 `ok/err/isOk/isErr` 助手。
+- ✅ 3. (测试) `shared/channels.test.ts` — 断言所有通道名唯一、键齐全（7 域 + 事件通道）。
+- ✅ 4. (实现) `shared/channels.ts` — IPC 通道名常量集中定义。
+- ✅ 5. (测试) `electron/db/schema.test.ts` — 内存库应用 schema 后，表/虚拟表/索引齐全。
+- ✅ 6. (实现) `electron/db/schema.ts` — 表、FTS5、sqlite-vec 虚拟表与索引 DDL。
+- ✅ 7. (测试) `electron/db/migrations/001_init.test.ts` — 迁移 up 建库、版本号写入、可重复执行。
+- ✅ 8. (实现) `electron/db/migrations/001_init.ts` — 首版迁移脚本。
+- ✅ 9. (测试) `electron/db/index.test.ts` — `openDb()` 幂等执行迁移并返回连接。
+- ✅ 10. (实现) `electron/db/index.ts` — 连接、加载 sqlite-vec、运行迁移。
 
 ---
 
 ## 阶段 1：文档解析
 
-- ⬜ 11. (测试) `electron/services/parse/txt.parser.test.ts` — 提取纯文本、空内容→错误。
-- ⬜ 12. (实现) `electron/services/parse/txt.parser.ts` — txt → contentText。
-- ⬜ 13. (测试) `electron/services/parse/md.parser.test.ts` — 保留正文文本、规范化。
-- ⬜ 14. (实现) `electron/services/parse/md.parser.ts` — md → contentText。
-- ⬜ 15. (测试) `electron/services/parse/pdf.parser.test.ts` — 样例 pdf 抽取文本、损坏文件→错误。
-- ⬜ 16. (实现) `electron/services/parse/pdf.parser.ts` — pdf → contentText（pdf.js）。
-- ⬜ 17. (测试) `electron/services/parse/index.test.ts` — 按类型分发、不支持格式→错误。
-- ⬜ 18. (实现) `electron/services/parse/index.ts` — 解析分发器。
+- ✅ 11. (测试) `electron/services/parse/txt.parser.test.ts` — 提取纯文本、空内容→错误。
+- ✅ 12. (实现) `electron/services/parse/txt.parser.ts` — txt → contentText。
+- ✅ 13. (测试) `electron/services/parse/md.parser.test.ts` — 保留正文文本、规范化。
+- ✅ 14. (实现) `electron/services/parse/md.parser.ts` — md → contentText。
+- ✅ 15. (测试) `electron/services/parse/pdf.parser.test.ts` — 样例 pdf 抽取文本、损坏文件→错误。
+- ✅ 16. (实现) `electron/services/parse/pdf.parser.ts` — pdf → contentText（pdf.js）。
+- ✅ 17. (测试) `electron/services/parse/index.test.ts` — 按类型分发、不支持格式→错误。
+- ✅ 18. (实现) `electron/services/parse/index.ts` — 解析分发器。
 
 ---
 
@@ -205,6 +205,6 @@
 
 ### 进度概览
 
-- 前置 Setup：0 / 6
-- TDD 主任务：0 / 100（测试 50 / 实现 50）
+- 前置 Setup：6 / 6 ✅
+- TDD 主任务：18 / 100（测试 9 / 实现 9）—— 阶段 0–1 完成
 - 验收回归：0 / 2

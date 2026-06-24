@@ -1,0 +1,18 @@
+appId: com.mdocs.app
+productName: mDocs
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - "**/*.node"
+mac:
+  target: dmg
+  category: public.app-category.productivity
+win:
+  target: nsis
+linux:
+  target: AppImage
+  category: Office
