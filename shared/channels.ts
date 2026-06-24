@@ -11,6 +11,7 @@ export const CHANNELS = {
     listByFolder: 'document:listByFolder',
     get: 'document:get',
     getFileUrl: 'document:getFileUrl',
+    pickPaths: 'document:pickPaths',
     upload: 'document:upload',
     importFolder: 'document:importFolder',
     createDoc: 'document:createDoc',

@@ -15,6 +15,9 @@ const treeText = (t: string) => within(screen.getByTestId('pane-tree')).getByTex
 let tokenCb: ((p: { messageId: string; delta: string }) => void) | null = null
 let sourcesCb: ((p: { messageId: string; sources: unknown[] }) => void) | null = null
 const updateContent = vi.fn(async () => ({ ok: true, data: {} }))
+const upload = vi.fn(async () => ({ ok: true, data: { added: [], skipped: [] } }))
+const saveModel = vi.fn(async () => ({ ok: true, data: {} }))
+const folderCreate = vi.fn(async () => ({ ok: true, data: {} }))
 
 const mdDoc = {
   id: 'd1',
@@ -36,12 +39,17 @@ beforeEach(() => {
   tokenCb = null
   sourcesCb = null
   updateContent.mockClear()
+  upload.mockClear()
+  saveModel.mockClear()
+  folderCreate.mockClear()
   useEditorStore.setState({ docId: null, draft: '', dirty: false })
   useChatStore.setState({ streaming: {}, sources: {}, error: null })
   useTreeStore.setState({ expanded: {}, selectedId: null })
   ;(window as unknown as { api: unknown }).api = {
     folder: {
       tree: vi.fn(async () => ({ ok: true, data: [{ id: 'f', name: 'F', parentId: null, children: [] }] })),
+      create: folderCreate,
+      rename: vi.fn(async () => ({ ok: true, data: {} })),
       delete: vi.fn(async () => ({ ok: true }))
     },
     document: {
@@ -52,11 +60,18 @@ beforeEach(() => {
       get: vi.fn(async () => ({ ok: true, data: mdDoc })),
       getFileUrl: vi.fn(async () => ({ ok: true, data: 'file:///x.pdf' })),
       updateContent,
-      createDoc: vi.fn(async () => ({ ok: true, data: mdDoc }))
+      createDoc: vi.fn(async () => ({ ok: true, data: mdDoc })),
+      pickPaths: vi.fn(async () => ({ ok: true, data: ['/a/b.md'] })),
+      upload
     },
     settings: {
-      listModels: vi.fn(async () => ({ ok: true, data: [] })),
+      listModels: vi.fn(async () => ({
+        ok: true,
+        data: [{ id: 'openai:gpt-4o', label: 'GPT-4o', provider: 'openai', modelName: 'gpt-4o', kind: 'chat' }]
+      })),
       getActiveModel: vi.fn(async () => ({ ok: true, data: null })),
+      switchModel: vi.fn(async () => ({ ok: true, data: { needKey: true, maskedKey: null } })),
+      saveModel,
       getPrivacyNotice: vi.fn(async () => ({ ok: true, data: { text: 'privacy' } }))
     },
     search: { keyword: vi.fn() },
@@ -105,8 +120,8 @@ describe('App', () => {
     render(<App />)
     await waitFor(() => treeText('F'))
     fireEvent.click(treeText('F'))
-    await waitFor(() => screen.getByText('note'))
-    fireEvent.click(screen.getByText('note'))
+    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
+    fireEvent.click(within(screen.getByTestId('pane-main')).getByText('note'))
     await waitFor(() => expect(screen.getByText('hello body')).toBeTruthy())
   })
 
@@ -114,8 +129,8 @@ describe('App', () => {
     render(<App />)
     await waitFor(() => treeText('F'))
     fireEvent.click(treeText('F'))
-    await waitFor(() => screen.getByText('note'))
-    fireEvent.click(screen.getByText('note'))
+    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
+    fireEvent.click(within(screen.getByTestId('pane-main')).getByText('note'))
     await waitFor(() => screen.getByText('编辑'))
     fireEvent.click(screen.getByText('编辑'))
     const box = within(screen.getByTestId('pane-main')).getByRole('textbox') as HTMLTextAreaElement
@@ -123,5 +138,41 @@ describe('App', () => {
     fireEvent.change(box, { target: { value: 'new content' } })
     fireEvent.click(screen.getByText('保存'))
     await waitFor(() => expect(updateContent).toHaveBeenCalledWith('d1', 'new content'))
+  })
+
+  it('creates a folder via the toolbar', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('NewFolder')
+    render(<App />)
+    await waitFor(() => screen.getByText('新建文件夹'))
+    fireEvent.click(screen.getByText('新建文件夹'))
+    await waitFor(() => expect(folderCreate).toHaveBeenCalledWith({ name: 'NewFolder', parentId: null }))
+  })
+
+  it('uploads picked files', async () => {
+    render(<App />)
+    await waitFor(() => screen.getByText('上传'))
+    fireEvent.click(screen.getByText('上传'))
+    await waitFor(() => expect(upload).toHaveBeenCalledWith({ paths: ['/a/b.md'], folderId: null }))
+  })
+
+  it('saves an API key for a selected model in settings', async () => {
+    render(<App />)
+    await waitFor(() => screen.getByText('设置'))
+    fireEvent.click(screen.getByText('设置'))
+    const panel = screen.getByTestId('settings-panel')
+    fireEvent.change(within(panel).getByRole('combobox'), { target: { value: 'openai:gpt-4o' } })
+    fireEvent.change(within(panel).getByPlaceholderText(/API Key/), { target: { value: 'k' } })
+    fireEvent.click(within(panel).getByText('保存'))
+    await waitFor(() =>
+      expect(saveModel).toHaveBeenCalledWith({ provider: 'openai', modelName: 'gpt-4o', apiKey: 'k' })
+    )
+  })
+
+  it('offers the opened folder documents as @scope options', async () => {
+    render(<App />)
+    await waitFor(() => treeText('F'))
+    fireEvent.click(treeText('F'))
+    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
+    expect(within(screen.getByTestId('pane-chat')).getByLabelText('note')).toBeTruthy()
   })
 })

@@ -6,6 +6,7 @@ export const documentApi = {
   listByFolder: (folderId: string | null) => bridge().document.listByFolder(folderId),
   get: (id: string) => bridge().document.get(id),
   getFileUrl: (id: string) => bridge().document.getFileUrl(id),
+  pickPaths: (opts: { directory?: boolean }) => bridge().document.pickPaths(opts),
   upload: (input: { paths: string[]; folderId: string | null; onConflict?: string }) =>
     bridge().document.upload(input),
   importFolder: (input: { dirPath: string; folderId: string | null }) =>

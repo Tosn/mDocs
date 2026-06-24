@@ -36,6 +36,23 @@ describe('FolderTree', () => {
     expect(onDelete).toHaveBeenCalledWith('r')
   })
 
+  it('rename prompts and calls onRename with the new name', () => {
+    const onRename = vi.fn()
+    vi.spyOn(window, 'prompt').mockReturnValue('renamed')
+    render(
+      <FolderTree
+        nodes={nodes}
+        expanded={{}}
+        onToggle={vi.fn()}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onRename={onRename}
+      />
+    )
+    fireEvent.click(screen.getByLabelText('重命名 root'))
+    expect(onRename).toHaveBeenCalledWith('r', 'renamed')
+  })
+
   it('cancelling confirmation keeps the folder', () => {
     const onDelete = vi.fn()
     vi.spyOn(window, 'confirm').mockReturnValue(false)

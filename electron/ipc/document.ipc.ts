@@ -65,6 +65,17 @@ export function registerDocumentIpc(
     return row ? ok(rowToDoc(row)) : err('E_NOT_FOUND', '文档不存在')
   })
 
+  ipcMain.handle(CHANNELS.document.pickPaths, async (_e, opts: { directory?: boolean } = {}) => {
+    const { dialog } = await import('electron')
+    const result = await dialog.showOpenDialog({
+      properties: opts.directory
+        ? ['openDirectory', 'multiSelections']
+        : ['openFile', 'multiSelections'],
+      filters: [{ name: '文档', extensions: ['md', 'markdown', 'txt', 'pdf'] }]
+    })
+    return ok(result.canceled ? [] : result.filePaths)
+  })
+
   ipcMain.handle(CHANNELS.document.getFileUrl, (_e, id: string) => {
     const row = db.prepare(`SELECT file_path FROM documents WHERE id = ?`).get(id) as
       | { file_path: string }

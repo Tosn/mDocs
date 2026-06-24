@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type Database from 'better-sqlite3'
 import { openDb } from '../db/index'
 import { CHANNELS } from '@shared/channels'
 import { registerDocumentIpc } from './document.ipc'
+
+const { showOpenDialog } = vi.hoisted(() => ({
+  showOpenDialog: vi.fn(async () => ({ canceled: false, filePaths: ['/a/b.md'] }))
+}))
+vi.mock('electron', () => ({ dialog: { showOpenDialog } }))
 
 function fakeIpc() {
   const handlers = new Map<string, (e: unknown, ...a: unknown[]) => unknown>()
@@ -40,6 +45,23 @@ describe('document.ipc', () => {
     }
     expect(list.ok).toBe(true)
     expect(list.data.length).toBe(1)
+  })
+
+  it('pickPaths opens the native dialog and returns selected paths', async () => {
+    showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['/a/b.md', '/a/c.txt'] })
+    const r = (await ipc.invoke(CHANNELS.document.pickPaths, { directory: false })) as {
+      ok: boolean
+      data: string[]
+    }
+    expect(r.ok).toBe(true)
+    expect(r.data).toEqual(['/a/b.md', '/a/c.txt'])
+  })
+
+  it('pickPaths returns empty array when cancelled', async () => {
+    showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] })
+    const r = (await ipc.invoke(CHANNELS.document.pickPaths, {})) as { ok: boolean; data: string[] }
+    expect(r.ok).toBe(true)
+    expect(r.data).toEqual([])
   })
 
   it('get handler returns the document by id', async () => {

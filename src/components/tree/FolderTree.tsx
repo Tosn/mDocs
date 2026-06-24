@@ -6,9 +6,10 @@ interface FolderTreeProps {
   onToggle: (id: string) => void
   onSelect: (id: string) => void
   onDelete: (id: string) => void
+  onRename?: (id: string, name: string) => void
 }
 
-function TreeRow({ node, expanded, onToggle, onSelect, onDelete }: { node: TreeNode } & Omit<FolderTreeProps, 'nodes'>) {
+function TreeRow({ node, expanded, onToggle, onSelect, onDelete, onRename }: { node: TreeNode } & Omit<FolderTreeProps, 'nodes'>) {
   const isExpanded = !!expanded[node.id]
   const hasChildren = node.children.length > 0
   return (
@@ -22,6 +23,17 @@ function TreeRow({ node, expanded, onToggle, onSelect, onDelete }: { node: TreeN
         <span className="tree-name" onClick={() => onSelect(node.id)}>
           {node.name}
         </span>
+        {onRename && (
+          <button
+            aria-label={`重命名 ${node.name}`}
+            onClick={() => {
+              const name = window.prompt('新名称', node.name)
+              if (name) onRename(node.id, name)
+            }}
+          >
+            改名
+          </button>
+        )}
         <button
           aria-label={`删除 ${node.name}`}
           onClick={() => {
@@ -43,6 +55,7 @@ function TreeRow({ node, expanded, onToggle, onSelect, onDelete }: { node: TreeN
               onToggle={onToggle}
               onSelect={onSelect}
               onDelete={onDelete}
+              onRename={onRename}
             />
           ))}
         </ul>
@@ -51,7 +64,7 @@ function TreeRow({ node, expanded, onToggle, onSelect, onDelete }: { node: TreeN
   )
 }
 
-export function FolderTree({ nodes, expanded, onToggle, onSelect, onDelete }: FolderTreeProps) {
+export function FolderTree({ nodes, expanded, onToggle, onSelect, onDelete, onRename }: FolderTreeProps) {
   return (
     <ul className="folder-tree">
       {nodes.map((node) => (
@@ -62,6 +75,7 @@ export function FolderTree({ nodes, expanded, onToggle, onSelect, onDelete }: Fo
           onToggle={onToggle}
           onSelect={onSelect}
           onDelete={onDelete}
+          onRename={onRename}
         />
       ))}
     </ul>

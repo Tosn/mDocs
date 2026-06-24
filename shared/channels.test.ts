@@ -38,4 +38,8 @@ describe('channels', () => {
   it('exposes the interactive (login) crawl channel', () => {
     expect(CHANNELS.crawl.fromUrlInteractive).toBe('crawl:fromUrlInteractive')
   })
+
+  it('exposes the document pickPaths (native dialog) channel', () => {
+    expect(CHANNELS.document.pickPaths).toBe('document:pickPaths')
+  })
 })

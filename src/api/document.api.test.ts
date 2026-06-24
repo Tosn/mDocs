@@ -5,6 +5,7 @@ const fns = {
   listByFolder: vi.fn(async () => ({ ok: true, data: [] })),
   get: vi.fn(async () => ({ ok: true, data: {} })),
   getFileUrl: vi.fn(async () => ({ ok: true, data: 'file://x' })),
+  pickPaths: vi.fn(async () => ({ ok: true, data: [] })),
   upload: vi.fn(async () => ({ ok: true, data: {} })),
   importFolder: vi.fn(async () => ({ ok: true, data: {} })),
   createDoc: vi.fn(async () => ({ ok: true, data: {} })),
@@ -30,5 +31,9 @@ describe('documentApi', () => {
   it('forwards listByFolder', async () => {
     await documentApi.listByFolder(null)
     expect(fns.listByFolder).toHaveBeenCalledWith(null)
+  })
+  it('forwards pickPaths options', async () => {
+    await documentApi.pickPaths({ directory: true })
+    expect(fns.pickPaths).toHaveBeenCalledWith({ directory: true })
   })
 })

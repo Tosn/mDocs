@@ -29,6 +29,8 @@ describe('preload', () => {
     expect(invoke).toHaveBeenCalledWith(CHANNELS.folder.create, { name: 'x', parentId: null })
     await api.search.keyword({ query: 'q' })
     expect(invoke).toHaveBeenCalledWith(CHANNELS.search.keyword, { query: 'q' })
+    await api.document.pickPaths({ directory: false })
+    expect(invoke).toHaveBeenCalledWith(CHANNELS.document.pickPaths, { directory: false })
   })
 
   it('on() subscribes through the provided subscriber', () => {
