@@ -107,36 +107,36 @@
 
 ## 阶段 7：启动清理
 
-- ⬜ 45. (测试) `electron/startup/trash-gc.test.ts` — 清除 purgeAfter 到期项、保留未到期项。
-- ⬜ 46. (实现) `electron/startup/trash-gc.ts` — 启动时回收站 GC。
+- ✅ 45. (测试) `electron/startup/trash-gc.test.ts` — 清除 purgeAfter 到期项、保留未到期项。
+- ✅ 46. (实现) `electron/startup/trash-gc.ts` — 启动时回收站 GC。
 
 ---
 
 ## 阶段 8：IPC 层（薄：校验 + 调 service + 包 Result）
 
-- ⬜ 47. (测试) `electron/ipc/folder.ipc.test.ts` — 注册通道、参数校验、Result 映射。
-- ⬜ 48. (实现) `electron/ipc/folder.ipc.ts` — 文件夹 IPC。
-- ⬜ 49. (测试) `electron/ipc/document.ipc.test.ts` — 含 import:progress 事件转发。
-- ⬜ 50. (实现) `electron/ipc/document.ipc.ts` — 文档 IPC。
-- ⬜ 51. (测试) `electron/ipc/search.ipc.test.ts` — 关键词通道。
-- ⬜ 52. (实现) `electron/ipc/search.ipc.ts` — 搜索 IPC。
-- ⬜ 53. (测试) `electron/ipc/trash.ipc.test.ts` — list/restore/purge 通道。
-- ⬜ 54. (实现) `electron/ipc/trash.ipc.ts` — 回收站 IPC。
-- ⬜ 55. (测试) `electron/ipc/crawl.ipc.test.ts` — fromUrl / **fromUrlInteractive** 通道与错误码透传。
-- ⬜ 56. (实现) `electron/ipc/crawl.ipc.ts` — 爬取 IPC（含交互式登录爬取）。
-- ⬜ 57. (测试) `electron/ipc/chat.ipc.test.ts` — ask 触发、chat:token/sources/done/error 事件转发。
-- ⬜ 58. (实现) `electron/ipc/chat.ipc.ts` — 对话 IPC。
-- ⬜ 59. (测试) `electron/ipc/settings.ipc.test.ts` — listModels/switchModel(回填掩码)/saveModel/testModel/隐私文案。
-- ⬜ 60. (实现) `electron/ipc/settings.ipc.ts` — 设置 IPC。
+- ✅ 47. (测试) `electron/ipc/folder.ipc.test.ts` — 注册通道、参数校验、Result 映射。
+- ✅ 48. (实现) `electron/ipc/folder.ipc.ts` — 文件夹 IPC。
+- ✅ 49. (测试) `electron/ipc/document.ipc.test.ts` — 含 import:progress 事件转发。
+- ✅ 50. (实现) `electron/ipc/document.ipc.ts` — 文档 IPC。
+- ✅ 51. (测试) `electron/ipc/search.ipc.test.ts` — 关键词通道。
+- ✅ 52. (实现) `electron/ipc/search.ipc.ts` — 搜索 IPC。
+- ✅ 53. (测试) `electron/ipc/trash.ipc.test.ts` — list/restore/purge 通道。
+- ✅ 54. (实现) `electron/ipc/trash.ipc.ts` — 回收站 IPC。
+- ✅ 55. (测试) `electron/ipc/crawl.ipc.test.ts` — fromUrl / **fromUrlInteractive** 通道与错误码透传。
+- ✅ 56. (实现) `electron/ipc/crawl.ipc.ts` — 爬取 IPC（含交互式登录爬取）。
+- ✅ 57. (测试) `electron/ipc/chat.ipc.test.ts` — ask 触发、chat:token/sources/done/error 事件转发。
+- ✅ 58. (实现) `electron/ipc/chat.ipc.ts` — 对话 IPC。
+- ✅ 59. (测试) `electron/ipc/settings.ipc.test.ts` — listModels/switchModel(回填掩码)/saveModel/testModel/隐私文案。
+- ✅ 60. (实现) `electron/ipc/settings.ipc.ts` — 设置 IPC。
 
 ---
 
 ## 阶段 9：进程入口与桥接
 
-- ⬜ 61. (测试) `electron/preload.test.ts` — contextBridge 暴露 window.api 含 7 域 + on() 事件订阅（打桩）。
-- ⬜ 62. (实现) `electron/preload.ts` — 预加载桥接。
-- ⬜ 63. (测试) `electron/main.test.ts` — bootstrap：注册全部 IPC、ready 时调用 trash-gc（打桩）。
-- ⬜ 64. (实现) `electron/main.ts` — 应用入口、窗口、启动钩子。
+- ✅ 61. (测试) `electron/preload.test.ts` — contextBridge 暴露 window.api 含 7 域 + on() 事件订阅（打桩）。
+- ✅ 62. (实现) `electron/preload.ts` — 预加载桥接。
+- ✅ 63. (测试) `electron/main.test.ts` — bootstrap：注册全部 IPC、ready 时调用 trash-gc（打桩）。
+- ✅ 64. (实现) `electron/main.ts` — 应用入口、窗口、启动钩子。
 
 ---
 
@@ -209,12 +209,12 @@
 
 > 与阶段 5 一起做；crawl.ipc / crawl.api 的接线已并入任务 55/56、73/74 的描述。
 
-- ⬜ 103. (测试) `shared/channels.test.ts` — 断言新增 `crawl.fromUrlInteractive` 通道存在且唯一。
-- ⬜ 104. (实现) `shared/channels.ts` — 增加 `crawl.fromUrlInteractive` 通道名。
-- ⬜ 105. (测试) `electron/services/crawl-login.service.test.ts` — 打桩 `BrowserWindow`：开窗口→用户「抓取当前页」→取渲染 HTML→复用 crawl 的 html→md→入库；取消→明确 error、不落空文档。
-- ⬜ 106. (实现) `electron/services/crawl-login.service.ts` — 交互式登录爬取编排（复用 `crawl.service` 的 html→md→入库）。
-- ⬜ 107. (测试) `src/components/crawl/AddWebDialog.test.tsx` — 输入 URL；普通抓取 vs 需登录走交互窗口；失败/取消提示。
-- ⬜ 108. (实现) `src/components/crawl/AddWebDialog.tsx` — 添加网页对话框。
+- ✅ 103. (测试) `shared/channels.test.ts` — 断言新增 `crawl.fromUrlInteractive` 通道存在且唯一。
+- ✅ 104. (实现) `shared/channels.ts` — 增加 `crawl.fromUrlInteractive` 通道名。
+- ✅ 105. (测试) `electron/services/crawl-login.service.test.ts` — 打桩 `BrowserWindow`：开窗口→用户「抓取当前页」→取渲染 HTML→复用 crawl 的 html→md→入库；取消→明确 error、不落空文档。
+- ✅ 106. (实现) `electron/services/crawl-login.service.ts` — 交互式登录爬取编排（复用 `crawl.service` 的 html→md→入库）。
+- ✅ 107. (测试) `src/components/crawl/AddWebDialog.test.tsx` — 输入 URL；普通抓取 vs 需登录走交互窗口；失败/取消提示。
+- ✅ 108. (实现) `src/components/crawl/AddWebDialog.tsx` — 添加网页对话框。
 
 ---
 
@@ -229,5 +229,5 @@
 ### 进度概览
 
 - 前置 Setup：6 / 6 ✅
-- TDD 主任务：46 / 108（测试 23 / 实现 23）—— 阶段 0–6 完成 + 阶段 14（@范围 101/102）完成；阶段 15（103–108）待办
+- TDD 主任务：72 / 108（测试 36 / 实现 36）—— 阶段 0–9 + 14 + 15 完成；剩渲染层（65–100）
 - 验收回归：0 / 3
