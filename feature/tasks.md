@@ -142,57 +142,57 @@
 
 ## 阶段 10：渲染层 API 封装
 
-- ⬜ 65. (测试) `src/api/folder.api.test.ts` — 调 window.api.folder、透传 Result。
-- ⬜ 66. (实现) `src/api/folder.api.ts` — 文件夹 API 封装。
-- ⬜ 67. (测试) `src/api/document.api.test.ts` — 文档 API 调用与事件订阅。
-- ⬜ 68. (实现) `src/api/document.api.ts` — 文档 API 封装。
-- ⬜ 69. (测试) `src/api/search.api.test.ts` — 搜索 API。
-- ⬜ 70. (实现) `src/api/search.api.ts` — 搜索 API 封装。
-- ⬜ 71. (测试) `src/api/trash.api.test.ts` — 回收站 API。
-- ⬜ 72. (实现) `src/api/trash.api.ts` — 回收站 API 封装。
-- ⬜ 73. (测试) `src/api/crawl.api.test.ts` — 爬取 API（fromUrl / fromUrlInteractive）。
-- ⬜ 74. (实现) `src/api/crawl.api.ts` — 爬取 API 封装（含交互式登录爬取）。
-- ⬜ 75. (测试) `src/api/chat.api.test.ts` — 对话 API + 流式事件回调 + **ask 透传 scope**。
-- ⬜ 76. (实现) `src/api/chat.api.ts` — 对话 API 封装（透传 scope）。
-- ⬜ 77. (测试) `src/api/settings.api.test.ts` — 设置 API。
-- ⬜ 78. (实现) `src/api/settings.api.ts` — 设置 API 封装。
+- ✅ 65. (测试) `src/api/folder.api.test.ts` — 调 window.api.folder、透传 Result。
+- ✅ 66. (实现) `src/api/folder.api.ts` — 文件夹 API 封装。
+- ✅ 67. (测试) `src/api/document.api.test.ts` — 文档 API 调用与事件订阅。
+- ✅ 68. (实现) `src/api/document.api.ts` — 文档 API 封装。
+- ✅ 69. (测试) `src/api/search.api.test.ts` — 搜索 API。
+- ✅ 70. (实现) `src/api/search.api.ts` — 搜索 API 封装。
+- ✅ 71. (测试) `src/api/trash.api.test.ts` — 回收站 API。
+- ✅ 72. (实现) `src/api/trash.api.ts` — 回收站 API 封装。
+- ✅ 73. (测试) `src/api/crawl.api.test.ts` — 爬取 API（fromUrl / fromUrlInteractive）。
+- ✅ 74. (实现) `src/api/crawl.api.ts` — 爬取 API 封装（含交互式登录爬取）。
+- ✅ 75. (测试) `src/api/chat.api.test.ts` — 对话 API + 流式事件回调 + **ask 透传 scope**。
+- ✅ 76. (实现) `src/api/chat.api.ts` — 对话 API 封装（透传 scope）。
+- ✅ 77. (测试) `src/api/settings.api.test.ts` — 设置 API。
+- ✅ 78. (实现) `src/api/settings.api.ts` — 设置 API 封装。
 
 ---
 
 ## 阶段 11：渲染层状态
 
-- ⬜ 79. (测试) `src/stores/tree.store.test.ts` — 展开/折叠、增删改后状态同步。
-- ⬜ 80. (实现) `src/stores/tree.store.ts` — 目录树 store。
-- ⬜ 81. (测试) `src/stores/editor.store.test.ts` — dirty 标记、未保存拦截状态。
-- ⬜ 82. (实现) `src/stores/editor.store.ts` — 编辑器 store。
-- ⬜ 83. (测试) `src/stores/chat.store.test.ts` — 流式 token 累积、来源附加、错误态。
-- ⬜ 84. (实现) `src/stores/chat.store.ts` — 对话 store。
-- ⬜ 85. (测试) `src/stores/settings.store.test.ts` — 当前模型、切换需 Key 标记。
-- ⬜ 86. (实现) `src/stores/settings.store.ts` — 设置 store。
+- ✅ 79. (测试) `src/stores/tree.store.test.ts` — 展开/折叠、增删改后状态同步。
+- ✅ 80. (实现) `src/stores/tree.store.ts` — 目录树 store。
+- ✅ 81. (测试) `src/stores/editor.store.test.ts` — dirty 标记、未保存拦截状态。
+- ✅ 82. (实现) `src/stores/editor.store.ts` — 编辑器 store。
+- ✅ 83. (测试) `src/stores/chat.store.test.ts` — 流式 token 累积、来源附加、错误态。
+- ✅ 84. (实现) `src/stores/chat.store.ts` — 对话 store。
+- ✅ 85. (测试) `src/stores/settings.store.test.ts` — 当前模型、切换需 Key 标记。
+- ✅ 86. (实现) `src/stores/settings.store.ts` — 设置 store。
 
 ---
 
 ## 阶段 12：渲染层组件
 
-- ⬜ 87. (测试) `src/components/tree/FolderTree.test.tsx` — 多级展开、右键新建/重命名/删除二次确认。
-- ⬜ 88. (实现) `src/components/tree/FolderTree.tsx` — 目录树组件。
-- ⬜ 89. (测试) `src/components/viewer/DocViewer.test.tsx` — md 渲染/txt 文本/pdf 翻页、长文滚动。
-- ⬜ 90. (实现) `src/components/viewer/DocViewer.tsx` — 预览组件。
-- ⬜ 91. (测试) `src/components/editor/DocEditor.test.tsx` — 编辑保存、未保存离开拦截、pdf 限制提示。
-- ⬜ 92. (实现) `src/components/editor/DocEditor.tsx` — 编辑组件。
-- ⬜ 93. (测试) `src/components/search/SearchPanel.test.tsx` — 结果列表、命中跳转、空状态。
-- ⬜ 94. (实现) `src/components/search/SearchPanel.tsx` — 搜索面板。
-- ⬜ 95. (测试) `src/components/chat/ChatPanel.test.tsx` — 流式渲染、来源可点击跳转、空库/无答案/超时提示、**@文件/@文件夹 选择器并随提问带 scope**。
-- ⬜ 96. (实现) `src/components/chat/ChatPanel.tsx` — 对话面板（含 @范围选择器）。
-- ⬜ 97. (测试) `src/components/settings/SettingsPanel.test.tsx` — 模型选择、切换弹 Key 框回填掩码、隐私告知、默认沿用上次模型。
-- ⬜ 98. (实现) `src/components/settings/SettingsPanel.tsx` — 设置面板。
+- ✅ 87. (测试) `src/components/tree/FolderTree.test.tsx` — 多级展开、右键新建/重命名/删除二次确认。
+- ✅ 88. (实现) `src/components/tree/FolderTree.tsx` — 目录树组件。
+- ✅ 89. (测试) `src/components/viewer/DocViewer.test.tsx` — md 渲染/txt 文本/pdf 翻页、长文滚动。
+- ✅ 90. (实现) `src/components/viewer/DocViewer.tsx` — 预览组件。
+- ✅ 91. (测试) `src/components/editor/DocEditor.test.tsx` — 编辑保存、未保存离开拦截、pdf 限制提示。
+- ✅ 92. (实现) `src/components/editor/DocEditor.tsx` — 编辑组件。
+- ✅ 93. (测试) `src/components/search/SearchPanel.test.tsx` — 结果列表、命中跳转、空状态。
+- ✅ 94. (实现) `src/components/search/SearchPanel.tsx` — 搜索面板。
+- ✅ 95. (测试) `src/components/chat/ChatPanel.test.tsx` — 流式渲染、来源可点击跳转、空库/无答案/超时提示、**@文件/@文件夹 选择器并随提问带 scope**。
+- ✅ 96. (实现) `src/components/chat/ChatPanel.tsx` — 对话面板（含 @范围选择器）。
+- ✅ 97. (测试) `src/components/settings/SettingsPanel.test.tsx` — 模型选择、切换弹 Key 框回填掩码、隐私告知、默认沿用上次模型。
+- ✅ 98. (实现) `src/components/settings/SettingsPanel.tsx` — 设置面板。
 
 ---
 
 ## 阶段 13：应用装配
 
-- ⬜ 99. (测试) `src/App.test.tsx` — 三栏布局渲染、无网降级横幅、首启隐私告知。
-- ⬜ 100. (实现) `src/App.tsx` — 主应用装配。
+- ✅ 99. (测试) `src/App.test.tsx` — 三栏布局渲染、无网降级横幅、首启隐私告知。
+- ✅ 100. (实现) `src/App.tsx` — 主应用装配。
 
 ---
 
@@ -229,5 +229,5 @@
 ### 进度概览
 
 - 前置 Setup：6 / 6 ✅
-- TDD 主任务：72 / 108（测试 36 / 实现 36）—— 阶段 0–9 + 14 + 15 完成；剩渲染层（65–100）
+- TDD 主任务：108 / 108 ✅（测试 54 / 实现 54）—— 全部阶段完成
 - 验收回归：0 / 3
