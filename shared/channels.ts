@@ -27,7 +27,8 @@ export const CHANNELS = {
     purge: 'trash:purge'
   },
   crawl: {
-    fromUrl: 'crawl:fromUrl'
+    fromUrl: 'crawl:fromUrl',
+    fromUrlInteractive: 'crawl:fromUrlInteractive'
   },
   chat: {
     listSessions: 'chat:listSessions',

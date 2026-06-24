@@ -34,4 +34,8 @@ describe('channels', () => {
     expect(CHANNELS.folder.list).toBe('folder:list')
     expect(CHANNELS.settings.switchModel).toBe('settings:switchModel')
   })
+
+  it('exposes the interactive (login) crawl channel', () => {
+    expect(CHANNELS.crawl.fromUrlInteractive).toBe('crawl:fromUrlInteractive')
+  })
 })
