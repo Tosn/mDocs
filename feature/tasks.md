@@ -96,12 +96,12 @@
 
 ## 阶段 6：LLM 与对话编排
 
-- ⬜ 39. (测试) `electron/services/llm/registry.test.ts` — 列出主流厂商/模型、按 id 查找。
-- ⬜ 40. (实现) `electron/services/llm/registry.ts` — 模型注册表。
-- ⬜ 41. (测试) `electron/services/llm/provider.test.ts` — 流式 chat 产出 token（打桩）、embed 调用、错误/超时。
-- ⬜ 42. (实现) `electron/services/llm/provider.ts` — 多厂商统一调用封装。
-- ⬜ 43. (测试) `electron/services/chat.service.test.ts` — ask：空库→提示、无召回→「未找到」、流式 token、落 MessageSource、持久化消息、**应用 scope 限定范围（含范围为空提示）**。
-- ⬜ 44. (实现) `electron/services/chat.service.ts` — 问答编排（scope 解析→检索→提示→流式→来源）。
+- ✅ 39. (测试) `electron/services/llm/registry.test.ts` — 列出主流厂商/模型、按 id 查找。
+- ✅ 40. (实现) `electron/services/llm/registry.ts` — 模型注册表。
+- ✅ 41. (测试) `electron/services/llm/provider.test.ts` — 流式 chat 产出 token（打桩）、embed 调用、错误/超时。
+- ✅ 42. (实现) `electron/services/llm/provider.ts` — 多厂商统一调用封装。
+- ✅ 43. (测试) `electron/services/chat.service.test.ts` — ask：空库→提示、无召回→「未找到」、流式 token、落 MessageSource、持久化消息、**应用 scope 限定范围（含范围为空提示）**。
+- ✅ 44. (实现) `electron/services/chat.service.ts` — 问答编排（scope 解析→检索→提示→流式→来源）。
 
 ---
 
@@ -200,8 +200,8 @@
 
 > 与阶段 4 一起做；retriever/chat/api/ChatPanel 的范围接线已并入任务 35/36、43/44、75/76、95/96 的描述。
 
-- ⬜ 101. (测试) `electron/services/rag/scope.test.ts` — resolveScope：@文件→对应文档；@文件夹→递归其下文档；空范围→null（=全库）；排除已删除文档。
-- ⬜ 102. (实现) `electron/services/rag/scope.ts` — 范围解析（导出 `ChatScope` 类型与 `resolveScope(db, scope)`）。
+- ✅ 101. (测试) `electron/services/rag/scope.test.ts` — resolveScope：@文件→对应文档；@文件夹→递归其下文档；空范围→null（=全库）；排除已删除文档。
+- ✅ 102. (实现) `electron/services/rag/scope.ts` — 范围解析（导出 `ChatScope` 类型与 `resolveScope(db, scope)`）。
 
 ---
 
@@ -229,5 +229,5 @@
 ### 进度概览
 
 - 前置 Setup：6 / 6 ✅
-- TDD 主任务：38 / 108（测试 19 / 实现 19）—— 阶段 0–5 完成；新增阶段 14/15（任务 101–108）待办
+- TDD 主任务：46 / 108（测试 23 / 实现 23）—— 阶段 0–6 完成 + 阶段 14（@范围 101/102）完成；阶段 15（103–108）待办
 - 验收回归：0 / 3
