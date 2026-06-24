@@ -1,5 +1,4 @@
 import { ok, err, type Result } from '@shared/types'
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
 interface TextItem {
   str?: string
@@ -8,6 +7,8 @@ interface TextItem {
 /** pdf → contentText：逐页提取文本（pdf.js）。损坏→E_PARSE_PDF；无文本→E_EMPTY。 */
 export async function parsePdf(data: Uint8Array | Buffer): Promise<Result<string>> {
   try {
+    // pdf.js 是 ESM-only，CommonJS 主进程需以动态 import 加载（避免 ERR_REQUIRE_ESM）。
+    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
     const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
     const pdf = await getDocument({ data: bytes }).promise
 
