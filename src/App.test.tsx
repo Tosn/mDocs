@@ -18,6 +18,10 @@ const updateContent = vi.fn(async () => ({ ok: true, data: {} }))
 const upload = vi.fn(async () => ({ ok: true, data: { added: [], skipped: [] } }))
 const saveModel = vi.fn(async () => ({ ok: true, data: {} }))
 const folderCreate = vi.fn(async () => ({ ok: true, data: {} }))
+const docRename = vi.fn(async () => ({ ok: true, data: {} }))
+const docDelete = vi.fn(async () => ({ ok: true, data: {} }))
+const createDocMock = vi.fn(async () => ({ ok: true, data: mdDoc }))
+const suggestName = vi.fn(async () => ({ ok: true, data: 'Doc (1)' }))
 
 const mdDoc = {
   id: 'd1',
@@ -42,6 +46,11 @@ beforeEach(() => {
   upload.mockClear()
   saveModel.mockClear()
   folderCreate.mockClear()
+  docRename.mockClear()
+  docDelete.mockClear()
+  createDocMock.mockClear()
+  createDocMock.mockImplementation(async () => ({ ok: true, data: mdDoc }))
+  suggestName.mockClear()
   useEditorStore.setState({ docId: null, draft: '', dirty: false })
   useChatStore.setState({ streaming: {}, sources: {}, error: null })
   useTreeStore.setState({ expanded: {}, selectedId: null })
@@ -60,16 +69,30 @@ beforeEach(() => {
       get: vi.fn(async () => ({ ok: true, data: mdDoc })),
       getFileUrl: vi.fn(async () => ({ ok: true, data: 'file:///x.pdf' })),
       updateContent,
-      createDoc: vi.fn(async () => ({ ok: true, data: mdDoc })),
+      createDoc: createDocMock,
+      suggestName,
       pickPaths: vi.fn(async () => ({ ok: true, data: ['/a/b.md'] })),
-      upload
+      upload,
+      rename: docRename,
+      delete: docDelete
     },
     settings: {
       listModels: vi.fn(async () => ({
         ok: true,
         data: [{ id: 'openai:gpt-4o', label: 'GPT-4o', provider: 'openai', modelName: 'gpt-4o', kind: 'chat' }]
       })),
-      getActiveModel: vi.fn(async () => ({ ok: true, data: null })),
+      getActiveModel: vi.fn(async () => ({
+        ok: true,
+        data: {
+          id: 'openai:gpt-4o',
+          provider: 'openai',
+          modelName: 'gpt-4o',
+          baseUrl: null,
+          keyRef: 'k',
+          isActive: true,
+          createdAt: 0
+        }
+      })),
       switchModel: vi.fn(async () => ({ ok: true, data: { needKey: true, maskedKey: null } })),
       saveModel,
       getPrivacyNotice: vi.fn(async () => ({ ok: true, data: { text: 'privacy' } }))
@@ -141,11 +164,65 @@ describe('App', () => {
   })
 
   it('creates a folder via the toolbar', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('NewFolder')
     render(<App />)
     await waitFor(() => screen.getByText('新建文件夹'))
     fireEvent.click(screen.getByText('新建文件夹'))
+    const dialog = await waitFor(() => screen.getByTestId('prompt-dialog'))
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'NewFolder' } })
+    fireEvent.click(within(dialog).getByText('确定'))
     await waitFor(() => expect(folderCreate).toHaveBeenCalledWith({ name: 'NewFolder', parentId: null }))
+  })
+
+  it('returns to root via the 全部文档 entry', async () => {
+    render(<App />)
+    await waitFor(() => treeText('F'))
+    fireEvent.click(treeText('F'))
+    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
+    fireEvent.click(treeText('全部文档'))
+    await waitFor(() =>
+      expect(within(screen.getByTestId('pane-main')).queryByText('note')).toBeNull()
+    )
+    const calls = (window as unknown as { api: { document: { listByFolder: { mock: { calls: unknown[][] } } } } })
+      .api.document.listByFolder.mock.calls
+    expect(calls[calls.length - 1][0]).toBeNull()
+  })
+
+  it('renames a document from the list', async () => {
+    render(<App />)
+    await waitFor(() => treeText('F'))
+    fireEvent.click(treeText('F'))
+    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
+    fireEvent.click(screen.getByLabelText('重命名 note'))
+    const dialog = await waitFor(() => screen.getByTestId('prompt-dialog'))
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'renamed' } })
+    fireEvent.click(within(dialog).getByText('确定'))
+    await waitFor(() => expect(docRename).toHaveBeenCalledWith('d1', 'renamed'))
+  })
+
+  it('deletes a document from the list after confirmation', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<App />)
+    await waitFor(() => treeText('F'))
+    fireEvent.click(treeText('F'))
+    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
+    fireEvent.click(screen.getByLabelText('删除 note'))
+    await waitFor(() => expect(docDelete).toHaveBeenCalledWith('d1'))
+  })
+
+  it('creates a doc under a suggested name when the name is a duplicate', async () => {
+    createDocMock.mockResolvedValueOnce({ ok: false, error: { code: 'E_DUPLICATE', message: 'dup' } })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<App />)
+    const main = screen.getByTestId('pane-main')
+    await waitFor(() => within(main).getByText('新建'))
+    fireEvent.click(within(main).getByText('新建'))
+    const dialog = await waitFor(() => screen.getByTestId('prompt-dialog'))
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Doc' } })
+    fireEvent.click(within(dialog).getByText('确定'))
+    await waitFor(() => expect(suggestName).toHaveBeenCalledWith({ name: 'Doc', folderId: null }))
+    await waitFor(() =>
+      expect(createDocMock).toHaveBeenLastCalledWith({ name: 'Doc (1)', folderId: null, contentText: '' })
+    )
   })
 
   it('uploads picked files', async () => {
@@ -173,6 +250,18 @@ describe('App', () => {
     await waitFor(() => treeText('F'))
     fireEvent.click(treeText('F'))
     await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
-    expect(within(screen.getByTestId('pane-chat')).getByLabelText('note')).toBeTruthy()
+    const chat = screen.getByTestId('pane-chat')
+    fireEvent.change(within(chat).getByPlaceholderText(/提问/), { target: { value: '@no' } })
+    await waitFor(() => expect(within(chat).getByLabelText('note')).toBeTruthy())
+  })
+
+  it('disables chat when no model is configured', async () => {
+    ;(window as unknown as { api: { settings: { getActiveModel: unknown } } }).api.settings.getActiveModel = vi.fn(
+      async () => ({ ok: true, data: null })
+    )
+    render(<App />)
+    const chat = screen.getByTestId('pane-chat')
+    await waitFor(() => expect(within(chat).getByText(/未配置 AI 模型/)).toBeTruthy())
+    expect((within(chat).getByPlaceholderText(/配置/) as HTMLTextAreaElement).disabled).toBe(true)
   })
 })

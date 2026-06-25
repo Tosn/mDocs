@@ -6,15 +6,16 @@ interface FolderTreeProps {
   onToggle: (id: string) => void
   onSelect: (id: string) => void
   onDelete: (id: string) => void
-  onRename?: (id: string, name: string) => void
+  onRename?: (id: string, currentName: string) => void
+  selectedId?: string | null
 }
 
-function TreeRow({ node, expanded, onToggle, onSelect, onDelete, onRename }: { node: TreeNode } & Omit<FolderTreeProps, 'nodes'>) {
+function TreeRow({ node, expanded, onToggle, onSelect, onDelete, onRename, selectedId }: { node: TreeNode } & Omit<FolderTreeProps, 'nodes'>) {
   const isExpanded = !!expanded[node.id]
   const hasChildren = node.children.length > 0
   return (
     <li>
-      <div className="tree-row">
+      <div className={`tree-row${node.id === selectedId ? ' active' : ''}`}>
         {hasChildren && (
           <button aria-label={`展开 ${node.name}`} onClick={() => onToggle(node.id)}>
             {isExpanded ? '▾' : '▸'}
@@ -24,13 +25,7 @@ function TreeRow({ node, expanded, onToggle, onSelect, onDelete, onRename }: { n
           {node.name}
         </span>
         {onRename && (
-          <button
-            aria-label={`重命名 ${node.name}`}
-            onClick={() => {
-              const name = window.prompt('新名称', node.name)
-              if (name) onRename(node.id, name)
-            }}
-          >
+          <button aria-label={`重命名 ${node.name}`} onClick={() => onRename(node.id, node.name)}>
             改名
           </button>
         )}
@@ -56,6 +51,7 @@ function TreeRow({ node, expanded, onToggle, onSelect, onDelete, onRename }: { n
               onSelect={onSelect}
               onDelete={onDelete}
               onRename={onRename}
+              selectedId={selectedId}
             />
           ))}
         </ul>
@@ -64,7 +60,7 @@ function TreeRow({ node, expanded, onToggle, onSelect, onDelete, onRename }: { n
   )
 }
 
-export function FolderTree({ nodes, expanded, onToggle, onSelect, onDelete, onRename }: FolderTreeProps) {
+export function FolderTree({ nodes, expanded, onToggle, onSelect, onDelete, onRename, selectedId }: FolderTreeProps) {
   return (
     <ul className="folder-tree">
       {nodes.map((node) => (
@@ -76,6 +72,7 @@ export function FolderTree({ nodes, expanded, onToggle, onSelect, onDelete, onRe
           onSelect={onSelect}
           onDelete={onDelete}
           onRename={onRename}
+          selectedId={selectedId}
         />
       ))}
     </ul>

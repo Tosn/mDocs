@@ -47,6 +47,16 @@ describe('document.ipc', () => {
     expect(list.data.length).toBe(1)
   })
 
+  it('suggestName returns an auto-numbered name on collision', async () => {
+    await ipc.invoke(CHANNELS.document.createDoc, { name: 'dup', folderId: null, contentText: 'x' })
+    const r = (await ipc.invoke(CHANNELS.document.suggestName, { name: 'dup', folderId: null })) as {
+      ok: boolean
+      data: string
+    }
+    expect(r.ok).toBe(true)
+    expect(r.data).toBe('dup (1)')
+  })
+
   it('pickPaths opens the native dialog and returns selected paths', async () => {
     showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['/a/b.md', '/a/c.txt'] })
     const r = (await ipc.invoke(CHANNELS.document.pickPaths, { directory: false })) as {

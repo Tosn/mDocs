@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type Database from 'better-sqlite3'
 import { openDb } from '../db/index'
-import { htmlToMarkdown, fromUrl } from './crawl.service'
+import { htmlToMarkdown, fromUrl, promoteTableHeaders, ingestWebDoc } from './crawl.service'
 import { isOk } from '@shared/types'
 
 const sampleHtml = `<html><head><title>My Article</title></head><body>
@@ -30,6 +30,35 @@ describe('crawl.service', () => {
     }
   })
 
+  it('htmlToMarkdown converts header-less tables to GFM pipe tables', () => {
+    // 真实网页常见：首行是 <td>，无 <thead>/<th>
+    const tableHtml = `<html><head><title>T</title></head><body><article>
+<h1>T</h1>
+<p>${'Intro text about the data set and the methodology used here. '.repeat(12)}</p>
+<table><tbody><tr><td>Name</td><td>Score</td></tr>
+<tr><td>Alice</td><td>90</td></tr><tr><td>Bob</td><td>80</td></tr></tbody></table>
+<p>${'Closing discussion of the results shown in the table above. '.repeat(12)}</p>
+</article></body></html>`
+    const r = htmlToMarkdown(tableHtml, 'https://x.test/t')
+    expect(isOk(r)).toBe(true)
+    if (isOk(r)) {
+      expect(r.data.markdown).toContain('| Name |')
+      expect(r.data.markdown).toMatch(/\| *--- *\|/)
+      expect(r.data.markdown).toContain('Alice')
+    }
+  })
+
+  it('promoteTableHeaders promotes the first row of a header-less table, idempotently', () => {
+    const headerless = '<table><tbody><tr><td>A</td><td>B</td></tr><tr><td>1</td><td>2</td></tr></tbody></table>'
+    const promoted = promoteTableHeaders(headerless)
+    expect(promoted).toContain('<th>A</th>')
+    expect(promoted).toContain('<th>B</th>')
+    expect(promoted).not.toContain('<td>A</td>')
+
+    const withTh = '<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>'
+    expect(promoteTableHeaders(withTh)).not.toContain('<th>1</th>')
+  })
+
   it('htmlToMarkdown errors on empty content', () => {
     const r = htmlToMarkdown('<html><body></body></html>', 'https://x.test')
     expect(r.ok).toBe(false)
@@ -46,6 +75,27 @@ describe('crawl.service', () => {
     }
     const fts = db.prepare(`SELECT COUNT(*) AS n FROM documents_fts`).get() as { n: number }
     expect(fts.n).toBe(1)
+  })
+
+  it('fromUrl sends a browser User-Agent header', async () => {
+    const f = vi.fn(async (_url: string, _init?: RequestInit) => new Response(sampleHtml, { status: 200 }))
+    vi.stubGlobal('fetch', f)
+    await fromUrl(db, { url: 'https://example.com/a', folderId: null })
+    const init = f.mock.calls[0][1] as { headers: Record<string, string> }
+    expect(init.headers['User-Agent']).toMatch(/Mozilla/)
+  })
+
+  it('ingestWebDoc auto-numbers duplicate titles in the same folder', () => {
+    const a = ingestWebDoc(db, { html: sampleHtml, url: 'https://example.com/a', folderId: null })
+    const b = ingestWebDoc(db, { html: sampleHtml, url: 'https://example.com/b', folderId: null })
+    expect(isOk(a)).toBe(true)
+    expect(isOk(b)).toBe(true)
+    if (isOk(a) && isOk(b)) {
+      expect(a.data.name).toBe('My Article')
+      expect(b.data.name).toBe('My Article (1)')
+    }
+    const n = db.prepare(`SELECT COUNT(*) AS n FROM documents`).get() as { n: number }
+    expect(n.n).toBe(2)
   })
 
   it('fromUrl rejects an invalid url', async () => {

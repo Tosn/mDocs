@@ -22,6 +22,8 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
       upload: (input: unknown) => invoke(CHANNELS.document.upload, input),
       importFolder: (input: unknown) => invoke(CHANNELS.document.importFolder, input),
       createDoc: (input: unknown) => invoke(CHANNELS.document.createDoc, input),
+      suggestName: (input: { name: string; folderId: string | null }) =>
+        invoke(CHANNELS.document.suggestName, input),
       updateContent: (id: string, contentText: string) =>
         invoke(CHANNELS.document.updateContent, id, contentText),
       rename: (id: string, name: string) => invoke(CHANNELS.document.rename, id, name),

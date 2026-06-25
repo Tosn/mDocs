@@ -9,7 +9,8 @@ import {
   renameDoc,
   deleteDoc,
   upload,
-  importFolder
+  importFolder,
+  uniqueName
 } from '../services/document.service'
 
 interface DocRow {
@@ -98,6 +99,11 @@ export function registerDocumentIpc(
     CHANNELS.document.createDoc,
     (_e, input: { name: string; folderId: string | null; contentText: string }) =>
       createDoc(db, input)
+  )
+  ipcMain.handle(
+    CHANNELS.document.suggestName,
+    (_e, input: { name: string; folderId: string | null }) =>
+      ok(uniqueName(db, input.folderId, (input.name ?? '').trim()))
   )
   ipcMain.handle(CHANNELS.document.updateContent, (_e, id: string, contentText: string) =>
     updateContent(db, id, contentText)

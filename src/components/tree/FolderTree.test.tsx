@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
 import { FolderTree } from './FolderTree'
 
 afterEach(cleanup)
@@ -36,9 +36,8 @@ describe('FolderTree', () => {
     expect(onDelete).toHaveBeenCalledWith('r')
   })
 
-  it('rename prompts and calls onRename with the new name', () => {
+  it('rename requests onRename with the current name', () => {
     const onRename = vi.fn()
-    vi.spyOn(window, 'prompt').mockReturnValue('renamed')
     render(
       <FolderTree
         nodes={nodes}
@@ -50,7 +49,16 @@ describe('FolderTree', () => {
       />
     )
     fireEvent.click(screen.getByLabelText('重命名 root'))
-    expect(onRename).toHaveBeenCalledWith('r', 'renamed')
+    expect(onRename).toHaveBeenCalledWith('r', 'root')
+  })
+
+  it('marks the selected node active', () => {
+    const { container } = render(
+      <FolderTree nodes={nodes} expanded={{}} onToggle={vi.fn()} onSelect={vi.fn()} onDelete={vi.fn()} selectedId="r" />
+    )
+    const row = container.querySelector('.tree-row.active')
+    expect(row).toBeTruthy()
+    expect(within(row as HTMLElement).getByText('root')).toBeTruthy()
   })
 
   it('cancelling confirmation keeps the folder', () => {

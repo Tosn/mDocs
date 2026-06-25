@@ -18,6 +18,7 @@ import { SearchPanel } from './components/search/SearchPanel'
 import { ChatPanel } from './components/chat/ChatPanel'
 import { AddWebDialog } from './components/crawl/AddWebDialog'
 import { SettingsPanel } from './components/settings/SettingsPanel'
+import { PromptDialog } from './components/common/PromptDialog'
 
 type Turn = { kind: 'user'; id: string; content: string } | { kind: 'assistant'; id: string }
 type DocListItem = { id: string; name: string; type: DocType }
@@ -34,6 +35,7 @@ export function App() {
   const [offline, setOffline] = useState(!navigator.onLine)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [convo, setConvo] = useState<Turn[]>([])
+  const [modelReady, setModelReady] = useState(false)
 
   const [folderId, setFolderId] = useState<string | null>(null)
   const [docs, setDocs] = useState<DocListItem[]>([])
@@ -42,6 +44,11 @@ export function App() {
   const [editing, setEditing] = useState(false)
   const [showWeb, setShowWeb] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [namePrompt, setNamePrompt] = useState<{
+    title: string
+    defaultValue: string
+    resolve: (value: string | null) => void
+  } | null>(null)
 
   const expanded = useTreeStore((s) => s.expanded)
   const toggle = useTreeStore((s) => s.toggle)
@@ -64,7 +71,12 @@ export function App() {
     void loadDocs(null)
     void settingsApi.getPrivacyNotice().then((r) => isOk(r) && setPrivacy(r.data.text))
     void settingsApi.listModels().then((r) => isOk(r) && useSettingsStore.getState().setModels(r.data))
-    void settingsApi.getActiveModel().then((r) => isOk(r) && r.data && useSettingsStore.getState().setActive(r.data.id))
+    void settingsApi.getActiveModel().then((r) => {
+      if (isOk(r) && r.data) {
+        useSettingsStore.getState().setActive(r.data.id)
+        setModelReady(true)
+      }
+    })
     void chatApi.createSession().then((r) => isOk(r) && setSessionId(r.data.id))
 
     const offToken = chatApi.onToken((p) => {
@@ -96,7 +108,7 @@ export function App() {
     }
   }, [])
 
-  const selectFolder = (id: string) => {
+  const selectFolder = (id: string | null) => {
     setFolderId(id)
     setOpenDoc(null)
     void loadDocs(id)
@@ -126,18 +138,53 @@ export function App() {
     }
   }
 
+  const askName = (title: string, defaultValue = '') =>
+    new Promise<string | null>((resolve) => setNamePrompt({ title, defaultValue, resolve }))
+
   const createNew = async () => {
-    const name = window.prompt('新文档名称')
+    const name = (await askName('新文档名称'))?.trim()
     if (!name) return
-    const r = await documentApi.createDoc({ name, folderId, contentText: '' })
+    let r = await documentApi.createDoc({ name, folderId, contentText: '' })
+    if (!isOk(r) && r.error.code === 'E_DUPLICATE') {
+      const s = await documentApi.suggestName({ name, folderId })
+      if (!isOk(s)) return
+      if (!window.confirm(`已存在文档「${name}」，是否改用「${s.data}」？`)) return
+      r = await documentApi.createDoc({ name: s.data, folderId, contentText: '' })
+    }
     if (isOk(r)) void loadDocs(folderId)
   }
 
   const createFolder = async () => {
-    const name = window.prompt('新文件夹名称')
+    const name = (await askName('新文件夹名称'))?.trim()
     if (!name) return
     const r = await folderApi.create({ name, parentId: folderId })
     if (isOk(r)) void refreshTree()
+  }
+
+  const renameFolder = async (id: string, currentName: string) => {
+    const name = (await askName('新名称', currentName))?.trim()
+    if (!name) return
+    const r = await folderApi.rename(id, name)
+    if (isOk(r)) void refreshTree()
+  }
+
+  const renameDoc = async (id: string, currentName: string) => {
+    const name = (await askName('新名称', currentName))?.trim()
+    if (!name) return
+    const r = await documentApi.rename(id, name)
+    if (isOk(r)) void loadDocs(folderId)
+  }
+
+  const deleteDoc = async (id: string, name: string) => {
+    if (!window.confirm(`确认删除「${name}」？删除后可在回收站保留 7 天。`)) return
+    const r = await documentApi.delete(id)
+    if (isOk(r)) {
+      if (openDoc?.id === id) {
+        setOpenDoc(null)
+        useEditorStore.getState().close()
+      }
+      void loadDocs(folderId)
+    }
   }
 
   const uploadFiles = async () => {
@@ -160,6 +207,7 @@ export function App() {
     const r = await settingsApi.saveModel({ provider, modelName, apiKey })
     if (isOk(r)) {
       useSettingsStore.getState().setNeedKey(false, null)
+      setModelReady(true)
       setShowSettings(false)
     }
   }
@@ -198,13 +246,20 @@ export function App() {
             <button onClick={createFolder}>新建文件夹</button>
             <button onClick={() => setShowSettings(true)}>设置</button>
           </div>
+          <button
+            className={`tree-root-entry${folderId === null ? ' active' : ''}`}
+            onClick={() => selectFolder(null)}
+          >
+            全部文档
+          </button>
           <FolderTree
             nodes={tree}
             expanded={expanded}
             onToggle={toggle}
             onSelect={selectFolder}
             onDelete={(id) => folderApi.delete(id).then(() => refreshTree())}
-            onRename={(id, name) => folderApi.rename(id, name).then(() => refreshTree())}
+            onRename={(id, currentName) => void renameFolder(id, currentName)}
+            selectedId={folderId}
           />
           <SearchPanel
             onSearch={async (q) => {
@@ -286,8 +341,16 @@ export function App() {
           ) : (
             <ul className="doc-list">
               {docs.map((d) => (
-                <li key={d.id} onClick={() => void openDocument(d.id)}>
-                  {d.name}
+                <li key={d.id}>
+                  <span className="doc-name" onClick={() => void openDocument(d.id)}>
+                    {d.name}
+                  </span>
+                  <button aria-label={`重命名 ${d.name}`} onClick={() => void renameDoc(d.id, d.name)}>
+                    改名
+                  </button>
+                  <button aria-label={`删除 ${d.name}`} onClick={() => void deleteDoc(d.id, d.name)}>
+                    删除
+                  </button>
                 </li>
               ))}
               {docs.length === 0 && <p className="empty">该目录暂无文档</p>}
@@ -303,9 +366,25 @@ export function App() {
             onAsk={onAsk}
             onOpenSource={(documentId) => void openDocument(documentId)}
             error={error}
+            modelReady={modelReady}
           />
         </section>
       </div>
+
+      {namePrompt && (
+        <PromptDialog
+          title={namePrompt.title}
+          defaultValue={namePrompt.defaultValue}
+          onSubmit={(value) => {
+            namePrompt.resolve(value)
+            setNamePrompt(null)
+          }}
+          onCancel={() => {
+            namePrompt.resolve(null)
+            setNamePrompt(null)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -13,6 +13,8 @@ export const documentApi = {
     bridge().document.importFolder(input),
   createDoc: (input: { name: string; folderId: string | null; contentText: string }) =>
     bridge().document.createDoc(input),
+  suggestName: (input: { name: string; folderId: string | null }) =>
+    bridge().document.suggestName(input),
   updateContent: (id: string, contentText: string) =>
     bridge().document.updateContent(id, contentText),
   rename: (id: string, name: string) => bridge().document.rename(id, name),

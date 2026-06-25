@@ -15,6 +15,7 @@ export const CHANNELS = {
     upload: 'document:upload',
     importFolder: 'document:importFolder',
     createDoc: 'document:createDoc',
+    suggestName: 'document:suggestName',
     updateContent: 'document:updateContent',
     rename: 'document:rename',
     delete: 'document:delete'

@@ -85,7 +85,7 @@ function nameExists(
   return !!row
 }
 
-function uniqueName(db: Database.Database, folderId: string | null, name: string): string {
+export function uniqueName(db: Database.Database, folderId: string | null, name: string): string {
   if (!nameExists(db, folderId, name)) return name
   const ext = extname(name)
   const base = ext ? name.slice(0, -ext.length) : name

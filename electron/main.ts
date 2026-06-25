@@ -106,7 +106,7 @@ async function startApp(): Promise<void> {
     const win = new BrowserWindow({
       width: 1280,
       height: 800,
-      webPreferences: { preload: join(__dirname, 'preload.js'), contextIsolation: true }
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), contextIsolation: true }
     })
     if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
     else win.loadFile(join(__dirname, '../renderer/index.html'))

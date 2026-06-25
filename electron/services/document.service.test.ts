@@ -10,7 +10,8 @@ import {
   renameDoc,
   deleteDoc,
   upload,
-  importFolder
+  importFolder,
+  uniqueName
 } from './document.service'
 import { isOk, isErr } from '@shared/types'
 
@@ -50,6 +51,14 @@ describe('document.service', () => {
       expect(r.data.indexedAt).toBeNull()
       expect(r.data.contentHash).not.toBe(c.data.contentHash)
     }
+  })
+
+  it('uniqueName appends an incrementing suffix on collisions', () => {
+    expect(uniqueName(db, null, 'a')).toBe('a')
+    createDoc(db, { name: 'a', folderId: null, contentText: 'x' })
+    expect(uniqueName(db, null, 'a')).toBe('a (1)')
+    createDoc(db, { name: 'a (1)', folderId: null, contentText: 'y' })
+    expect(uniqueName(db, null, 'a')).toBe('a (2)')
   })
 
   it('renameDoc rejects duplicate in same folder', () => {
