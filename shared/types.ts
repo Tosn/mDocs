@@ -106,6 +106,8 @@ export interface MessageSource {
   chunkId: string
   snippet: string
   score: number
+  /** 来源文档名（用于直接展示标题，运行时填充，不落 message_sources 表）。 */
+  documentName?: string
 }
 
 // ── DTOs (plan §5) ───────────────────────────────────────────────────────────
@@ -114,6 +116,8 @@ export interface TreeNode {
   name: string
   parentId: string | null
   children: TreeNode[]
+  /** 该文件夹直接包含的文档数（不含子文件夹）。 */
+  docCount: number
 }
 
 export interface SearchHit {

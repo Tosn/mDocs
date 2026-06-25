@@ -184,6 +184,32 @@ export function renameDoc(db: Database.Database, id: string, name: string): Resu
   return ok(rowToDoc(getDocRow(db, id)!))
 }
 
+/** 移动文档到目标文件夹（folderId 为 null = 根/全部文档）；同名冲突自动编号。 */
+export function moveDoc(
+  db: Database.Database,
+  id: string,
+  folderId: string | null
+): Result<Document> {
+  const cur = getDocRow(db, id)
+  if (!cur) return err('E_NOT_FOUND', '文档不存在')
+  if (cur.folder_id === folderId) return ok(rowToDoc(cur))
+
+  let name = cur.name
+  if (nameExists(db, folderId, name, id)) name = uniqueName(db, folderId, name)
+
+  const now = Date.now()
+  db.prepare(`UPDATE documents SET folder_id = ?, name = ?, updated_at = ? WHERE id = ?`).run(
+    folderId,
+    name,
+    now,
+    id
+  )
+  if (name !== cur.name) {
+    db.prepare(`UPDATE documents_fts SET name = ? WHERE document_id = ?`).run(name, id)
+  }
+  return ok(rowToDoc(getDocRow(db, id)!))
+}
+
 export function deleteDoc(db: Database.Database, id: string): Result<void> {
   const cur = getDocRow(db, id)
   if (!cur) return err('E_NOT_FOUND', '文档不存在')

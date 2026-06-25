@@ -82,6 +82,13 @@ describe('SettingsPanel', () => {
     expect(onSaveKey).toHaveBeenCalledWith('sk-new-key')
   })
 
+  it('shows a reindex button when an embedding model is selected', () => {
+    const onReindex = vi.fn()
+    render(<SettingsPanel {...baseProps} currentEmbedId="openai:text-embedding-3-small" onReindex={onReindex} />)
+    fireEvent.click(screen.getByText(/重建文档索引/))
+    expect(onReindex).toHaveBeenCalled()
+  })
+
   it('shows the privacy notice', () => {
     render(<SettingsPanel {...baseProps} />)
     expect(screen.getByText('notice text')).toBeTruthy()

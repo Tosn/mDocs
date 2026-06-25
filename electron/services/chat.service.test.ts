@@ -3,7 +3,15 @@ import type Database from 'better-sqlite3'
 import { randomUUID } from 'node:crypto'
 import { openDb } from '../db/index'
 import { EMBEDDING_DIM } from '../db/schema'
-import { createSession, getMessages, ask, type AskDeps } from './chat.service'
+import {
+  createSession,
+  listSessions,
+  deleteSession,
+  getMessages,
+  getSources,
+  ask,
+  type AskDeps
+} from './chat.service'
 import { isOk } from '@shared/types'
 
 let db: Database.Database
@@ -51,6 +59,42 @@ describe('chat.service', () => {
       const m = getMessages(db, s.data.id)
       if (isOk(m)) expect(m.data.length).toBe(0)
     }
+  })
+
+  it('listSessions hides empty sessions and deleteSession removes a session', async () => {
+    const empty = createSession(db)
+    const used = createSession(db)
+    if (!isOk(empty) || !isOk(used)) throw new Error('setup')
+    await ask(db, { sessionId: used.data.id, question: '你好' }, baseDeps)
+
+    const list1 = listSessions(db)
+    if (!isOk(list1)) throw new Error('list')
+    expect(list1.data.map((s) => s.id)).toEqual([used.data.id]) // 空会话被隐藏
+
+    const del = deleteSession(db, used.data.id)
+    expect(isOk(del)).toBe(true)
+    const list2 = listSessions(db)
+    if (isOk(list2)) expect(list2.data.length).toBe(0)
+    const msgs = db.prepare(`SELECT COUNT(*) AS n FROM chat_messages WHERE session_id = ?`).get(used.data.id) as {
+      n: number
+    }
+    expect(msgs.n).toBe(0)
+  })
+
+  it('sets the session title from the first question', async () => {
+    const s = createSession(db)
+    if (!isOk(s)) throw new Error('setup')
+    await ask(db, { sessionId: s.data.id, question: '如何使用 claude 进行 SDD 开发' }, baseDeps)
+    const row = db.prepare(`SELECT title FROM chat_sessions WHERE id = ?`).get(s.data.id) as {
+      title: string
+    }
+    expect(row.title).toBe('如何使用 claude 进行 SDD 开发')
+    // 第二条提问不再改标题
+    await ask(db, { sessionId: s.data.id, question: '另一个问题' }, baseDeps)
+    const row2 = db.prepare(`SELECT title FROM chat_sessions WHERE id = ?`).get(s.data.id) as {
+      title: string
+    }
+    expect(row2.title).toBe('如何使用 claude 进行 SDD 开发')
   })
 
   it('replies to add documents when the library is empty', async () => {
@@ -126,6 +170,44 @@ describe('chat.service', () => {
     expect(isOk(r)).toBe(true)
     if (isOk(r)) expect(r.data.content).toContain('未返回内容')
     expect(tokens.join('')).toContain('未返回内容')
+  })
+
+  it('getSources returns persisted sources with the document name', async () => {
+    const s = createSession(db)
+    if (!isOk(s)) throw new Error('setup')
+    const docId = randomUUID()
+    addDocRow(db, docId, 'my-doc')
+    addChunk(db, docId, randomUUID(), 'relevant fact', vec([1, 0, 0]))
+    await ask(db, { sessionId: s.data.id, question: 'what?' }, baseDeps)
+
+    const r = getSources(db, s.data.id)
+    expect(isOk(r)).toBe(true)
+    if (isOk(r)) {
+      expect(r.data.length).toBeGreaterThan(0)
+      expect(r.data[0].documentName).toBe('my-doc')
+    }
+  })
+
+  it('does not surface sources when the model answers not-found', async () => {
+    const s = createSession(db)
+    if (!isOk(s)) throw new Error('setup')
+    const docId = randomUUID()
+    addDocRow(db, docId, 'doc')
+    addChunk(db, docId, randomUUID(), 'unrelated fact', vec([1, 0, 0]))
+
+    let sourcesEmitted = -1
+    const notFoundStream: AskDeps['streamChat'] = async function* () {
+      yield '未在文档中找到相关内容'
+    }
+    const r = await ask(
+      db,
+      { sessionId: s.data.id, question: 'halou' },
+      { ...baseDeps, streamChat: notFoundStream, onSources: (_id, srcs) => (sourcesEmitted = srcs.length) }
+    )
+    expect(isOk(r)).toBe(true)
+    expect(sourcesEmitted).toBe(-1) // onSources 未被调用
+    const persisted = db.prepare(`SELECT COUNT(*) AS n FROM message_sources`).get() as { n: number }
+    expect(persisted.n).toBe(0)
   })
 
   it('answers not-found when nothing is retrieved', async () => {

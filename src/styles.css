@@ -328,6 +328,61 @@ textarea::placeholder {
   padding: 2px 0;
 }
 
+.folder-tree .tree-count {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--fg-subtle);
+}
+
+.folder-tree .tree-row.drop-target {
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+  background: var(--primary-soft);
+}
+
+/* 右键“移动到”菜单 */
+.context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+}
+
+.context-menu {
+  position: fixed;
+  min-width: 160px;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.context-menu-title,
+.context-menu-empty {
+  font-size: 11.5px;
+  color: var(--fg-subtle);
+  padding: 4px 8px;
+}
+
+.context-menu button {
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+}
+
+.context-menu button:hover {
+  background: var(--surface-2);
+}
+
 .folder-tree .tree-name::before {
   content: '';
   display: inline-block;
@@ -646,7 +701,6 @@ textarea::placeholder {
   font-size: 15px;
   line-height: 1.7;
   color: var(--fg);
-  max-width: 78ch;
 }
 
 .doc-viewer.markdown h1,
@@ -807,6 +861,35 @@ textarea::placeholder {
   min-height: 0;
 }
 
+.chat-panel .chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-panel .chat-header .new-session,
+.chat-panel .chat-header .delete-session {
+  flex: none;
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.chat-panel .chat-header .delete-session {
+  color: var(--danger);
+}
+
+.chat-panel .chat-header .delete-session:hover:not(:disabled) {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+}
+
+.chat-panel .chat-header .session-picker {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+
 .chat-panel .error,
 .add-web-dialog .error {
   background: var(--danger-bg);
@@ -862,6 +945,109 @@ textarea::placeholder {
   color: var(--fg);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
+}
+
+/* 助手消息内的 Markdown 排版（由 react-markdown 渲染为块级元素） */
+.chat-panel .msg .content.markdown {
+  white-space: normal;
+}
+
+.chat-panel .content.markdown > :first-child {
+  margin-top: 0;
+}
+.chat-panel .content.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-panel .content.markdown p {
+  margin: 0 0 8px;
+}
+
+.chat-panel .content.markdown strong {
+  font-weight: 600;
+}
+
+.chat-panel .content.markdown ul,
+.chat-panel .content.markdown ol {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+.chat-panel .content.markdown li {
+  margin: 2px 0;
+}
+
+.chat-panel .content.markdown li > p {
+  margin: 0;
+}
+
+.chat-panel .content.markdown h1,
+.chat-panel .content.markdown h2,
+.chat-panel .content.markdown h3,
+.chat-panel .content.markdown h4 {
+  margin: 12px 0 6px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.chat-panel .content.markdown h1 {
+  font-size: 17px;
+}
+.chat-panel .content.markdown h2 {
+  font-size: 16px;
+}
+.chat-panel .content.markdown h3,
+.chat-panel .content.markdown h4 {
+  font-size: 14.5px;
+}
+
+.chat-panel .content.markdown a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.chat-panel .content.markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.chat-panel .content.markdown pre {
+  margin: 6px 0 8px;
+  padding: 10px 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+.chat-panel .content.markdown pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.chat-panel .content.markdown blockquote {
+  margin: 6px 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--fg-muted);
+}
+
+.chat-panel .content.markdown table {
+  border-collapse: collapse;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+.chat-panel .content.markdown th,
+.chat-panel .content.markdown td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
 }
 
 .chat-panel .sources {
@@ -1002,6 +1188,14 @@ textarea::placeholder {
   color: var(--fg-subtle);
 }
 
+.settings-panel .reindex-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 /* 当前可用模型指示（输入框上方） */
 .chat-panel .composer-model {
   display: flex;
@@ -1132,7 +1326,8 @@ textarea::placeholder {
   order: 2;
 }
 
-.settings-panel {
+.settings-panel,
+.trash-panel {
   order: 1;
   width: 100%;
   max-width: 440px;
@@ -1144,6 +1339,113 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.trash-panel {
+  max-width: 560px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.trash-panel .trash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trash-panel .trash-title {
+  margin: 0;
+  font-size: 15px;
+}
+
+.trash-panel .trash-selectall {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.trash-panel .trash-batch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.trash-panel .trash-batch span {
+  margin-right: auto;
+}
+
+.trash-panel .trash-check {
+  flex: none;
+}
+
+.trash-panel .trash-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trash-panel .trash-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.trash-panel .trash-kind {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  background: var(--surface-3);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.trash-panel .trash-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-panel .trash-meta {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--fg-subtle);
+}
+
+.trash-panel .trash-list button {
+  flex: none;
+  min-height: 28px;
+  padding: 3px 10px;
+  font-size: 12.5px;
+}
+
+.trash-panel .trash-list button.danger {
+  color: var(--danger);
+}
+
+.trash-panel .trash-list button.danger:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
 }
 
 .settings-panel label {

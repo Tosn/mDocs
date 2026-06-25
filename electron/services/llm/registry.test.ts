@@ -27,4 +27,12 @@ describe('llm registry', () => {
   it('exposes at least one embedding-capable model', () => {
     expect(listModels().some((m) => m.kind === 'embedding')).toBe(true)
   })
+
+  it('includes Zhipu chat and embedding models with their baseUrl', () => {
+    const chat = getModel('zhipu:glm-4-flash')
+    const embed = getModel('zhipu:embedding-3')
+    expect(chat?.kind).toBe('chat')
+    expect(embed?.kind).toBe('embedding')
+    expect(chat?.baseUrl).toContain('bigmodel.cn')
+  })
 })

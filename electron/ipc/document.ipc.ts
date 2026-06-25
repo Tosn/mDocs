@@ -1,17 +1,20 @@
 import type Database from 'better-sqlite3'
 import { pathToFileURL } from 'node:url'
 import { CHANNELS } from '@shared/channels'
-import { ok, err, type Document } from '@shared/types'
+import { ok, err, isOk, type Document } from '@shared/types'
 import type { IpcLike } from './folder.ipc'
 import {
   createDoc,
   updateContent,
   renameDoc,
+  moveDoc,
   deleteDoc,
   upload,
   importFolder,
   uniqueName
 } from '../services/document.service'
+import { indexPending } from '../services/rag/indexing.service'
+import type { EmbedFn } from '../services/rag/embedder'
 
 interface DocRow {
   id: string
@@ -50,8 +53,13 @@ function rowToDoc(r: DocRow): Document {
 export function registerDocumentIpc(
   ipcMain: IpcLike,
   db: Database.Database,
-  ctx: { storageDir?: string } = {}
+  ctx: { storageDir?: string; embed?: EmbedFn } = {}
 ): void {
+  // 导入/新建/编辑后，后台为尚未索引的文档建向量索引（失败不阻断，问答时会再提示）。
+  const indexLater = () => {
+    if (ctx.embed) void indexPending(db, ctx.embed).catch(() => {})
+  }
+
   ipcMain.handle(CHANNELS.document.listByFolder, (_e, folderId: string | null) => {
     const rows = db
       .prepare(`SELECT * FROM documents WHERE deleted_at IS NULL AND folder_id IS ? ORDER BY name`)
@@ -87,27 +95,41 @@ export function registerDocumentIpc(
 
   ipcMain.handle(
     CHANNELS.document.upload,
-    (_e, input: { paths: string[]; folderId: string | null; onConflict?: never }) =>
-      upload(db, { ...input, storageDir: ctx.storageDir })
+    async (_e, input: { paths: string[]; folderId: string | null; onConflict?: never }) => {
+      const r = await upload(db, { ...input, storageDir: ctx.storageDir })
+      if (isOk(r)) indexLater()
+      return r
+    }
   )
   ipcMain.handle(
     CHANNELS.document.importFolder,
-    (_e, input: { dirPath: string; folderId: string | null }) =>
-      importFolder(db, { ...input, storageDir: ctx.storageDir })
+    async (_e, input: { dirPath: string; folderId: string | null }) => {
+      const r = await importFolder(db, { ...input, storageDir: ctx.storageDir })
+      if (isOk(r)) indexLater()
+      return r
+    }
   )
   ipcMain.handle(
     CHANNELS.document.createDoc,
-    (_e, input: { name: string; folderId: string | null; contentText: string }) =>
-      createDoc(db, input)
+    (_e, input: { name: string; folderId: string | null; contentText: string }) => {
+      const r = createDoc(db, input)
+      if (isOk(r)) indexLater()
+      return r
+    }
   )
   ipcMain.handle(
     CHANNELS.document.suggestName,
     (_e, input: { name: string; folderId: string | null }) =>
       ok(uniqueName(db, input.folderId, (input.name ?? '').trim()))
   )
-  ipcMain.handle(CHANNELS.document.updateContent, (_e, id: string, contentText: string) =>
-    updateContent(db, id, contentText)
-  )
+  ipcMain.handle(CHANNELS.document.updateContent, (_e, id: string, contentText: string) => {
+    const r = updateContent(db, id, contentText)
+    if (isOk(r)) indexLater()
+    return r
+  })
   ipcMain.handle(CHANNELS.document.rename, (_e, id: string, name: string) => renameDoc(db, id, name))
+  ipcMain.handle(CHANNELS.document.move, (_e, id: string, folderId: string | null) =>
+    moveDoc(db, id, folderId)
+  )
   ipcMain.handle(CHANNELS.document.delete, (_e, id: string) => deleteDoc(db, id))
 }

@@ -171,6 +171,27 @@ describe('settings.ipc', () => {
     expect(r.data).toBeNull()
   })
 
+  it('reindex rebuilds document indexes using the injected embed fn', async () => {
+    const now = Date.now()
+    db.prepare(
+      `INSERT INTO documents (id, folder_id, name, type, file_path, source_url, content_text, content_hash, size, indexed_at, created_at, updated_at, deleted_at)
+       VALUES ('d1', NULL, 'doc', 'md', '', NULL, 'some content to embed', 'h', 1, NULL, ?, ?, NULL)`
+    ).run(now, now)
+    const embed = async (texts: string[]) => texts.map(() => new Array(8).fill(0.1))
+    registerSettingsIpc(ipc as never, db, { embed })
+
+    const r = (await ipc.invoke(CHANNELS.settings.reindex)) as { ok: boolean; data?: { indexed: number } }
+    expect(r.ok).toBe(true)
+    expect(r.data?.indexed).toBe(1)
+    const chunks = db.prepare(`SELECT COUNT(*) AS n FROM doc_chunks`).get() as { n: number }
+    expect(chunks.n).toBeGreaterThan(0)
+  })
+
+  it('reindex without an embedding model returns an error', async () => {
+    const r = (await ipc.invoke(CHANNELS.settings.reindex)) as { ok: boolean }
+    expect(r.ok).toBe(false)
+  })
+
   it('returns a privacy notice', async () => {
     const r = (await ipc.invoke(CHANNELS.settings.getPrivacyNotice)) as {
       ok: boolean

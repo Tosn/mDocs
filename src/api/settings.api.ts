@@ -17,5 +17,6 @@ export const settingsApi = {
     role?: 'chat' | 'embedding'
   }) => bridge().settings.saveModel(input),
   testModel: (id: string) => bridge().settings.testModel(id),
+  reindex: () => bridge().settings.reindex(),
   getPrivacyNotice: () => bridge().settings.getPrivacyNotice()
 }

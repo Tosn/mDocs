@@ -8,6 +8,7 @@ import {
   createDoc,
   updateContent,
   renameDoc,
+  moveDoc,
   deleteDoc,
   upload,
   importFolder,
@@ -31,6 +32,29 @@ afterEach(() => {
 })
 
 describe('document.service', () => {
+  it('moveDoc moves a document into a target folder', () => {
+    const doc = createDoc(db, { name: 'm', folderId: null, contentText: 'x' })
+    if (!isOk(doc)) throw new Error('setup')
+    db.prepare(
+      `INSERT INTO folders (id, name, parent_id, created_at, updated_at, deleted_at) VALUES ('fold','Box',NULL,0,0,NULL)`
+    ).run()
+    const r = moveDoc(db, doc.data.id, 'fold')
+    expect(isOk(r)).toBe(true)
+    if (isOk(r)) expect(r.data.folderId).toBe('fold')
+  })
+
+  it('moveDoc auto-numbers on name conflict in the target folder', () => {
+    db.prepare(
+      `INSERT INTO folders (id, name, parent_id, created_at, updated_at, deleted_at) VALUES ('fold','Box',NULL,0,0,NULL)`
+    ).run()
+    createDoc(db, { name: 'dup', folderId: 'fold', contentText: 'a' })
+    const doc = createDoc(db, { name: 'dup', folderId: null, contentText: 'b' })
+    if (!isOk(doc)) throw new Error('setup')
+    const r = moveDoc(db, doc.data.id, 'fold')
+    expect(isOk(r)).toBe(true)
+    if (isOk(r)) expect(r.data.name).toBe('dup (1)')
+  })
+
   it('createDoc inserts with content hash and md type', () => {
     const r = createDoc(db, { name: 'note', folderId: null, contentText: 'hello' })
     expect(isOk(r)).toBe(true)

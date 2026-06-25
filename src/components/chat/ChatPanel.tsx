@@ -1,4 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { MessageSource } from '@shared/types'
 
 interface ScopeOption {
@@ -24,6 +26,11 @@ interface ChatPanelProps {
   modelLabel?: string | null
   thinking?: boolean
   embedReady?: boolean
+  sessions?: { id: string; title: string }[]
+  currentSessionId?: string | null
+  onNewSession?: () => void
+  onSelectSession?: (id: string) => void
+  onDeleteSession?: (id: string) => void
 }
 
 const MENTION_RE = /(?:^|\s)@(\S*)$/
@@ -38,12 +45,25 @@ export function ChatPanel({
   modelReady = true,
   modelLabel,
   thinking = false,
-  embedReady = true
+  embedReady = true,
+  sessions = [],
+  currentSessionId,
+  onNewSession,
+  onSelectSession,
+  onDeleteSession
 }: ChatPanelProps) {
   const [question, setQuestion] = useState('')
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [activeIndex, setActiveIndex] = useState(0)
   const taRef = useRef<HTMLTextAreaElement>(null)
+  const messagesRef = useRef<HTMLDivElement>(null)
+
+  // 流式回答时自动跟随到底部；仅在用户已接近底部时滚动，避免打断上翻查看。
+  useEffect(() => {
+    const el = messagesRef.current
+    if (!el) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) el.scrollTop = el.scrollHeight
+  }, [messages, thinking])
 
   const mentionMatch = MENTION_RE.exec(question)
   const mentionQuery = mentionMatch ? mentionMatch[1].toLowerCase() : null
@@ -111,17 +131,63 @@ export function ChatPanel({
 
   return (
     <div className="chat-panel">
+      {(onNewSession || sessions.length > 0) && (
+        <div className="chat-header">
+          <button className="new-session" onClick={onNewSession}>
+            + 新会话
+          </button>
+          {sessions.length > 0 && (
+            <>
+              <select
+                className="session-picker"
+                aria-label="历史会话"
+                value={currentSessionId ?? '__new__'}
+                onChange={(e) => e.target.value !== '__new__' && onSelectSession?.(e.target.value)}
+              >
+                {!sessions.some((s) => s.id === currentSessionId) && (
+                  <option value="__new__">（当前新会话）</option>
+                )}
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="delete-session"
+                aria-label="删除会话"
+                disabled={!sessions.some((s) => s.id === currentSessionId)}
+                onClick={() => currentSessionId && onDeleteSession?.(currentSessionId)}
+              >
+                删除
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {error && <div className="error">{error}</div>}
 
-      <div className="messages">
+      <div className="messages" ref={messagesRef}>
         {messages.map((m) => (
           <div key={m.id} className={`msg ${m.role}`}>
-            <div className="content">{m.content}</div>
+            {m.role === 'assistant' ? (
+              <div className="content markdown">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+              </div>
+            ) : (
+              <div className="content">{m.content}</div>
+            )}
             {sources[m.id]?.length > 0 && (
               <ul className="sources">
                 {sources[m.id].map((s) => (
                   <li key={s.id}>
-                    <button onClick={() => onOpenSource(s.documentId)}>来源：{s.snippet}</button>
+                    <button
+                      onClick={() => onOpenSource(s.documentId)}
+                      title={s.snippet}
+                    >
+                      来源：{s.documentName ?? s.snippet}
+                    </button>
                   </li>
                 ))}
               </ul>

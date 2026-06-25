@@ -56,7 +56,10 @@ beforeEach(() => {
   useTreeStore.setState({ expanded: {}, selectedId: null })
   ;(window as unknown as { api: unknown }).api = {
     folder: {
-      tree: vi.fn(async () => ({ ok: true, data: [{ id: 'f', name: 'F', parentId: null, children: [] }] })),
+      tree: vi.fn(async () => ({
+        ok: true,
+        data: [{ id: 'f', name: 'F', parentId: null, children: [], docCount: 2 }]
+      })),
       create: folderCreate,
       rename: vi.fn(async () => ({ ok: true, data: {} })),
       delete: vi.fn(async () => ({ ok: true }))
@@ -94,6 +97,7 @@ beforeEach(() => {
         }
       })),
       getActiveEmbedModel: vi.fn(async () => ({ ok: true, data: null })),
+      reindex: vi.fn(async () => ({ ok: true, data: { indexed: 0 } })),
       switchModel: vi.fn(async () => ({ ok: true, data: { needKey: false, maskedKey: 'sk-...1234' } })),
       selectModel: vi.fn(async () => ({
         ok: true,
@@ -103,8 +107,31 @@ beforeEach(() => {
       getPrivacyNotice: vi.fn(async () => ({ ok: true, data: { text: 'privacy' } }))
     },
     search: { keyword: vi.fn() },
+    trash: {
+      list: vi.fn(async () => ({
+        ok: true,
+        data: [
+          {
+            id: 't1',
+            itemType: 'document',
+            name: 'gone.md',
+            deletedAt: 0,
+            purgeAfter: Date.now() + 86400000
+          }
+        ]
+      })),
+      restore: vi.fn(async () => ({ ok: true, data: undefined })),
+      purge: vi.fn(async () => ({ ok: true, data: undefined }))
+    },
     chat: {
       createSession: vi.fn(async () => ({ ok: true, data: { id: 's1' } })),
+      listSessions: vi.fn(async () => ({
+        ok: true,
+        data: [{ id: 's1', title: '新对话', modelConfigId: null, createdAt: 0, updatedAt: 0 }]
+      })),
+      getMessages: vi.fn(async () => ({ ok: true, data: [] })),
+      getSources: vi.fn(async () => ({ ok: true, data: [] })),
+      deleteSession: vi.fn(async () => ({ ok: true, data: undefined })),
       ask: vi.fn(async () => {
         tokenCb?.({ messageId: 'm1', delta: 'Ans' })
         tokenCb?.({ messageId: 'm1', delta: 'wer' })
@@ -142,6 +169,14 @@ describe('App', () => {
     fireEvent.change(screen.getByPlaceholderText(/提问/), { target: { value: 'q' } })
     fireEvent.click(screen.getByText('发送'))
     await waitFor(() => expect(screen.getByText('Answer')).toBeTruthy())
+  })
+
+  it('opens the trash and lists deleted items', async () => {
+    render(<App />)
+    await waitFor(() => screen.getByText('回收站'))
+    fireEvent.click(screen.getByText('回收站'))
+    await waitFor(() => expect(screen.getByTestId('trash-panel')).toBeTruthy())
+    expect(screen.getByText('gone.md')).toBeTruthy()
   })
 
   it('lists documents of a selected folder and previews one', async () => {

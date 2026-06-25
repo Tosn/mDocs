@@ -18,5 +18,6 @@ export const documentApi = {
   updateContent: (id: string, contentText: string) =>
     bridge().document.updateContent(id, contentText),
   rename: (id: string, name: string) => bridge().document.rename(id, name),
+  move: (id: string, folderId: string | null) => bridge().document.move(id, folderId),
   delete: (id: string) => bridge().document.delete(id)
 }

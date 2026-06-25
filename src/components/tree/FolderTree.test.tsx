@@ -5,7 +5,13 @@ import { FolderTree } from './FolderTree'
 afterEach(cleanup)
 
 const nodes = [
-  { id: 'r', name: 'root', parentId: null, children: [{ id: 'c', name: 'child', parentId: 'r', children: [] }] }
+  {
+    id: 'r',
+    name: 'root',
+    parentId: null,
+    docCount: 3,
+    children: [{ id: 'c', name: 'child', parentId: 'r', children: [], docCount: 0 }]
+  }
 ]
 
 describe('FolderTree', () => {
@@ -13,6 +19,30 @@ describe('FolderTree', () => {
     render(<FolderTree nodes={nodes} expanded={{ r: true }} onToggle={vi.fn()} onSelect={vi.fn()} onDelete={vi.fn()} />)
     expect(screen.getByText('root')).toBeTruthy()
     expect(screen.getByText('child')).toBeTruthy()
+  })
+
+  it('shows the document count next to each folder', () => {
+    render(<FolderTree nodes={nodes} expanded={{ r: true }} onToggle={vi.fn()} onSelect={vi.fn()} onDelete={vi.fn()} />)
+    expect(screen.getByText('(3)')).toBeTruthy()
+    expect(screen.getByText('(0)')).toBeTruthy()
+  })
+
+  it('dropping a dragged doc onto a folder moves it', () => {
+    const onMoveDoc = vi.fn()
+    render(
+      <FolderTree
+        nodes={nodes}
+        expanded={{}}
+        onToggle={vi.fn()}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onMoveDoc={onMoveDoc}
+      />
+    )
+    const row = screen.getByText('root').closest('.tree-row') as HTMLElement
+    fireEvent.dragOver(row)
+    fireEvent.drop(row, { dataTransfer: { getData: () => 'doc-1' } })
+    expect(onMoveDoc).toHaveBeenCalledWith('doc-1', 'r')
   })
 
   it('hides children when collapsed', () => {

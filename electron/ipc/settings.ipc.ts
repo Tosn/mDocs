@@ -1,10 +1,16 @@
 import type Database from 'better-sqlite3'
 import { randomUUID } from 'node:crypto'
-import { CHANNELS } from '@shared/channels'
+import { CHANNELS, EVENTS } from '@shared/channels'
 import { ok, err, isOk, type ModelConfig } from '@shared/types'
 import type { IpcLike } from './folder.ipc'
 import { listModels, getModel } from '../services/llm/registry'
 import { saveKey, hasKey, maskKey } from '../services/credential.service'
+import { reindexAll } from '../services/rag/indexing.service'
+import type { EmbedFn } from '../services/rag/embedder'
+
+interface IpcEvent {
+  sender: { send: (channel: string, payload: unknown) => void }
+}
 
 const PRIVACY_NOTICE =
   '问答与嵌入会将相关文档内容发送给你所选的模型服务商进行处理。API Key 加密存储于本机系统安全区，不会明文落库。请确认你了解并接受后再使用外部模型。'
@@ -48,8 +54,21 @@ function rowToConfig(r: ModelConfigRow): ModelConfig {
   }
 }
 
-export function registerSettingsIpc(ipcMain: IpcLike, db: Database.Database): void {
+export function registerSettingsIpc(
+  ipcMain: IpcLike,
+  db: Database.Database,
+  ctx: { embed?: EmbedFn } = {}
+): void {
   ipcMain.handle(CHANNELS.settings.listModels, () => ok(listModels()))
+
+  // 全量重建索引（换嵌入模型/维度变化后用），进度经 import:progress 回报。
+  ipcMain.handle(CHANNELS.settings.reindex, async (event) => {
+    if (!ctx.embed) return err('E_NO_EMBED', '未配置嵌入模型，无法建立索引')
+    const send = (event as IpcEvent | undefined)?.sender?.send
+    return reindexAll(db, ctx.embed, (done, total) =>
+      send?.call((event as IpcEvent).sender, EVENTS.importProgress, { phase: 'index', done, total })
+    )
+  })
 
   ipcMain.handle(CHANNELS.settings.getActiveModel, () => {
     const row = db.prepare(`SELECT * FROM model_configs WHERE is_active = 1 LIMIT 1`).get() as

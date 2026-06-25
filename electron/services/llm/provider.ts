@@ -27,8 +27,16 @@ export async function embed(req: EmbedReq, embedFn: EmbedApiFn = defaultEmbed): 
   try {
     return ok(await embedFn(req))
   } catch (e) {
-    return err('E_EMBED', `嵌入调用失败：${(e as Error).message}`)
+    return err('E_EMBED', `嵌入调用失败：${describeError(e)}`)
   }
+}
+
+/** 展开 fetch 的底层 cause（如 ENOTFOUND/证书/连接被拒），否则 "fetch failed" 等信息不可用。 */
+export function describeError(e: unknown): string {
+  const err_ = e as Error & { cause?: unknown }
+  const cause = err_?.cause
+  const causeMsg = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : ''
+  return `${err_?.message ?? String(e)}${causeMsg ? `（${causeMsg}）` : ''}`
 }
 
 // ── 默认传输：OpenAI 兼容端点（openai / deepseek / qwen compatible-mode 等） ──
@@ -40,7 +48,10 @@ async function* defaultStream(req: ChatReq): AsyncIterable<string> {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${req.apiKey}` },
     body: JSON.stringify({ model: req.model, messages: req.messages, stream: true })
   })
-  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok || !res.body) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`对话请求失败 HTTP ${res.status}${detail ? `：${detail.slice(0, 300)}` : ''}`)
+  }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
@@ -73,7 +84,10 @@ async function defaultEmbed(req: EmbedReq): Promise<number[][]> {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${req.apiKey}` },
     body: JSON.stringify({ model: req.model, input: req.texts })
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`嵌入请求失败 HTTP ${res.status}${detail ? `：${detail.slice(0, 300)}` : ''}`)
+  }
   const json = (await res.json()) as { data: { embedding: number[] }[] }
   return json.data.map((d) => d.embedding)
 }

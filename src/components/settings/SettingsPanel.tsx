@@ -84,6 +84,8 @@ interface SettingsPanelProps {
   embedMaskedKey: string | null
   onSelectEmbed: (id: string) => void
   onSaveEmbedKey: (apiKey: string) => void
+  onReindex?: () => void
+  reindexing?: boolean
   privacyNotice: string
 }
 
@@ -99,6 +101,8 @@ export function SettingsPanel({
   embedMaskedKey,
   onSelectEmbed,
   onSaveEmbedKey,
+  onReindex,
+  reindexing = false,
   privacyNotice
 }: SettingsPanelProps) {
   const chatModels = models.filter((m) => m.kind === 'chat')
@@ -129,6 +133,15 @@ export function SettingsPanel({
         onSelectModel={onSelectEmbed}
         onSaveKey={onSaveEmbedKey}
       />
+
+      {onReindex && currentEmbedId && (
+        <div className="reindex-row">
+          <button onClick={onReindex} disabled={reindexing}>
+            {reindexing ? '重建索引中…' : '重建文档索引'}
+          </button>
+          <span className="api-key-hint">换嵌入模型或导入大量文档后，可手动重建索引。</span>
+        </div>
+      )}
 
       <p className="privacy-notice">{privacyNotice}</p>
     </div>

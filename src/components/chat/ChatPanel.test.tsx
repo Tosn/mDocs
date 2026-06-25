@@ -124,15 +124,49 @@ describe('ChatPanel', () => {
     render(
       <ChatPanel
         messages={[{ id: 'm', role: 'assistant', content: 'the answer' }]}
-        sources={{ m: [{ id: 's', messageId: 'm', documentId: 'd', chunkId: 'c', snippet: 'snip', score: 1 }] }}
+        sources={{
+          m: [
+            { id: 's', messageId: 'm', documentId: 'd', chunkId: 'c', snippet: 'snip', score: 1, documentName: 'notes.md' }
+          ]
+        }}
         scopeOptions={[]}
         onAsk={vi.fn()}
         onOpenSource={onOpenSource}
       />
     )
     expect(screen.getByText('the answer')).toBeTruthy()
-    fireEvent.click(screen.getByText(/snip/))
+    // 来源直接展示文档标题，而非原文片段。
+    fireEvent.click(screen.getByText(/来源：notes\.md/))
     expect(onOpenSource).toHaveBeenCalledWith('d')
+  })
+
+  it('starts/switches/deletes history sessions', () => {
+    const onNewSession = vi.fn()
+    const onSelectSession = vi.fn()
+    const onDeleteSession = vi.fn()
+    render(
+      <ChatPanel
+        messages={[]}
+        sources={{}}
+        scopeOptions={[]}
+        onAsk={vi.fn()}
+        onOpenSource={vi.fn()}
+        sessions={[
+          { id: 's1', title: '会话一' },
+          { id: 's2', title: '会话二' }
+        ]}
+        currentSessionId="s1"
+        onNewSession={onNewSession}
+        onSelectSession={onSelectSession}
+        onDeleteSession={onDeleteSession}
+      />
+    )
+    fireEvent.click(screen.getByText('+ 新会话'))
+    expect(onNewSession).toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText('历史会话'), { target: { value: 's2' } })
+    expect(onSelectSession).toHaveBeenCalledWith('s2')
+    fireEvent.click(screen.getByText('删除'))
+    expect(onDeleteSession).toHaveBeenCalledWith('s1')
   })
 
   it('shows an error banner', () => {

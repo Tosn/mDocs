@@ -26,6 +26,22 @@ describe('folder.service', () => {
     }
   })
 
+  it('buildTree reports the direct document count per folder', () => {
+    const a = createFolder(db, { name: 'A', parentId: null })
+    if (!isOk(a)) throw new Error('setup')
+    const now = Date.now()
+    const ins = db.prepare(
+      `INSERT INTO documents (id, folder_id, name, type, file_path, source_url, content_text, content_hash, size, indexed_at, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, 'md', '', NULL, '', 'h', 0, NULL, ?, ?, NULL)`
+    )
+    ins.run('d1', a.data.id, 'one', now, now)
+    ins.run('d2', a.data.id, 'two', now, now)
+
+    const roots = buildTree(db)
+    if (!isOk(roots)) throw new Error('tree')
+    expect(roots.data.find((n) => n.id === a.data.id)?.docCount).toBe(2)
+  })
+
   it('lists folders by parent', () => {
     createFolder(db, { name: 'A', parentId: null })
     const b = createFolder(db, { name: 'B', parentId: null })

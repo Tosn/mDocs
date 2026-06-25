@@ -27,6 +27,7 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
       updateContent: (id: string, contentText: string) =>
         invoke(CHANNELS.document.updateContent, id, contentText),
       rename: (id: string, name: string) => invoke(CHANNELS.document.rename, id, name),
+      move: (id: string, folderId: string | null) => invoke(CHANNELS.document.move, id, folderId),
       delete: (id: string) => invoke(CHANNELS.document.delete, id)
     },
     search: {
@@ -44,7 +45,9 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
     chat: {
       listSessions: () => invoke(CHANNELS.chat.listSessions),
       createSession: () => invoke(CHANNELS.chat.createSession),
+      deleteSession: (sessionId: string) => invoke(CHANNELS.chat.deleteSession, sessionId),
       getMessages: (sessionId: string) => invoke(CHANNELS.chat.getMessages, sessionId),
+      getSources: (sessionId: string) => invoke(CHANNELS.chat.getSources, sessionId),
       ask: (input: unknown) => invoke(CHANNELS.chat.ask, input)
     },
     settings: {
@@ -56,6 +59,7 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
         invoke(CHANNELS.settings.selectModel, input),
       saveModel: (input: unknown) => invoke(CHANNELS.settings.saveModel, input),
       testModel: (id: string) => invoke(CHANNELS.settings.testModel, id),
+      reindex: () => invoke(CHANNELS.settings.reindex),
       getPrivacyNotice: () => invoke(CHANNELS.settings.getPrivacyNotice)
     },
     on: (event: string, listener: (payload: unknown) => void) => on(event, listener),

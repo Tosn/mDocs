@@ -18,6 +18,7 @@ export const CHANNELS = {
     suggestName: 'document:suggestName',
     updateContent: 'document:updateContent',
     rename: 'document:rename',
+    move: 'document:move',
     delete: 'document:delete'
   },
   search: {
@@ -35,7 +36,9 @@ export const CHANNELS = {
   chat: {
     listSessions: 'chat:listSessions',
     createSession: 'chat:createSession',
+    deleteSession: 'chat:deleteSession',
     getMessages: 'chat:getMessages',
+    getSources: 'chat:getSources',
     ask: 'chat:ask'
   },
   settings: {
@@ -46,6 +49,7 @@ export const CHANNELS = {
     selectModel: 'settings:selectModel',
     saveModel: 'settings:saveModel',
     testModel: 'settings:testModel',
+    reindex: 'settings:reindex',
     getPrivacyNotice: 'settings:getPrivacyNotice'
   }
 } as const

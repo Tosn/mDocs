@@ -46,7 +46,14 @@ export function createSession(db: Database.Database, title = '新对话'): Resul
 }
 
 export function listSessions(db: Database.Database): Result<ChatSession[]> {
-  const rows = db.prepare(`SELECT * FROM chat_sessions ORDER BY updated_at DESC`).all() as {
+  // 只列出已有消息的会话，隐藏从未用过的空「新对话」。
+  const rows = db
+    .prepare(
+      `SELECT s.* FROM chat_sessions s
+       WHERE EXISTS (SELECT 1 FROM chat_messages m WHERE m.session_id = s.id)
+       ORDER BY s.updated_at DESC`
+    )
+    .all() as {
     id: string
     title: string
     model_config_id: string | null
@@ -60,6 +67,51 @@ export function listSessions(db: Database.Database): Result<ChatSession[]> {
       modelConfigId: r.model_config_id,
       createdAt: r.created_at,
       updatedAt: r.updated_at
+    }))
+  )
+}
+
+export function deleteSession(db: Database.Database, sessionId: string): Result<void> {
+  const tx = db.transaction(() => {
+    db.prepare(
+      `DELETE FROM message_sources WHERE message_id IN
+         (SELECT id FROM chat_messages WHERE session_id = ?)`
+    ).run(sessionId)
+    db.prepare(`DELETE FROM chat_messages WHERE session_id = ?`).run(sessionId)
+    db.prepare(`DELETE FROM chat_sessions WHERE id = ?`).run(sessionId)
+  })
+  tx()
+  return ok(undefined)
+}
+
+/** 取某会话所有消息的来源（带文档名），用于历史会话重载时回填来源展示。 */
+export function getSources(db: Database.Database, sessionId: string): Result<MessageSource[]> {
+  const rows = db
+    .prepare(
+      `SELECT ms.id, ms.message_id, ms.document_id, ms.chunk_id, ms.snippet, ms.score, d.name AS document_name
+       FROM message_sources ms
+       JOIN chat_messages cm ON cm.id = ms.message_id
+       LEFT JOIN documents d ON d.id = ms.document_id
+       WHERE cm.session_id = ?`
+    )
+    .all(sessionId) as {
+    id: string
+    message_id: string
+    document_id: string
+    chunk_id: string
+    snippet: string
+    score: number
+    document_name: string | null
+  }[]
+  return ok(
+    rows.map((r) => ({
+      id: r.id,
+      messageId: r.message_id,
+      documentId: r.document_id,
+      chunkId: r.chunk_id,
+      snippet: r.snippet,
+      score: r.score,
+      documentName: r.document_name ?? '未知文档'
     }))
   )
 }
@@ -100,7 +152,16 @@ export async function ask(
   const session = db.prepare(`SELECT id FROM chat_sessions WHERE id = ?`).get(input.sessionId)
   if (!session) return err('E_NOT_FOUND', '会话不存在')
 
+  // 首条提问作为会话标题，便于历史会话列表辨识。
+  const isFirst =
+    (db.prepare(`SELECT COUNT(*) AS n FROM chat_messages WHERE session_id = ?`).get(input.sessionId) as {
+      n: number
+    }).n === 0
   insertMessage(db, input.sessionId, 'user', question)
+  if (isFirst) {
+    const title = question.length > 40 ? `${question.slice(0, 40)}…` : question
+    db.prepare(`UPDATE chat_sessions SET title = ? WHERE id = ?`).run(title, input.sessionId)
+  }
 
   const reply = (content: string): Result<{ messageId: string; content: string }> => {
     const id = insertMessage(db, input.sessionId, 'assistant', content)
@@ -145,21 +206,35 @@ export async function ask(
 
   insertMessage(db, input.sessionId, 'assistant', content, messageId)
 
-  const sources: MessageSource[] = chunks.map((c) => ({
-    id: randomUUID(),
-    messageId,
-    documentId: c.documentId,
-    chunkId: c.chunkId,
-    snippet: c.text.slice(0, 200),
-    score: c.score
-  }))
-  const insertSrc = db.prepare(
-    `INSERT INTO message_sources (id, message_id, document_id, chunk_id, snippet, score) VALUES (?, ?, ?, ?, ?, ?)`
-  )
-  for (const s of sources) {
-    insertSrc.run(s.id, s.messageId, s.documentId, s.chunkId, s.snippet, s.score)
+  // 模型判定「未找到」时，召回片段只是低相关度噪声，不作为来源展示/持久化。
+  const notFound = /未在文档中找到相关内容|未找到相关(内容|信息)/.test(content)
+  if (!notFound) {
+    // 按文档去重：同一文档多个命中片段只保留分数最高的一条，来源直接展示文档标题。
+    const docName = db.prepare(`SELECT name FROM documents WHERE id = ?`)
+    const seen = new Set<string>()
+    const sources: MessageSource[] = []
+    for (const c of chunks) {
+      if (seen.has(c.documentId)) continue
+      seen.add(c.documentId)
+      const nameRow = docName.get(c.documentId) as { name: string } | undefined
+      sources.push({
+        id: randomUUID(),
+        messageId,
+        documentId: c.documentId,
+        chunkId: c.chunkId,
+        snippet: c.text.slice(0, 200),
+        score: c.score,
+        documentName: nameRow?.name ?? '未知文档'
+      })
+    }
+    const insertSrc = db.prepare(
+      `INSERT INTO message_sources (id, message_id, document_id, chunk_id, snippet, score) VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    for (const s of sources) {
+      insertSrc.run(s.id, s.messageId, s.documentId, s.chunkId, s.snippet, s.score)
+    }
+    deps.onSources?.(messageId, sources)
   }
-  deps.onSources?.(messageId, sources)
 
   return ok({ messageId, content })
 }

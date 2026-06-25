@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { TreeNode, Document, DocType } from '@shared/types'
+import type { TreeNode, Document, DocType, MessageSource } from '@shared/types'
 import { isOk } from '@shared/types'
 import { folderApi } from './api/folder.api'
 import { documentApi } from './api/document.api'
@@ -18,10 +18,15 @@ import { SearchPanel } from './components/search/SearchPanel'
 import { ChatPanel } from './components/chat/ChatPanel'
 import { AddWebDialog } from './components/crawl/AddWebDialog'
 import { SettingsPanel } from './components/settings/SettingsPanel'
+import { TrashPanel } from './components/trash/TrashPanel'
 import { PromptDialog } from './components/common/PromptDialog'
+import { trashApi } from './api/trash.api'
 
-type Turn = { kind: 'user'; id: string; content: string } | { kind: 'assistant'; id: string }
+type Turn =
+  | { kind: 'user'; id: string; content: string }
+  | { kind: 'assistant'; id: string; content?: string }
 type DocListItem = { id: string; name: string; type: DocType }
+type SessionItem = { id: string; title: string }
 
 function flattenFolders(nodes: TreeNode[]): TreeNode[] {
   return nodes.flatMap((n) => [n, ...flattenFolders(n.children)])
@@ -34,9 +39,11 @@ export function App() {
   const [privacy, setPrivacy] = useState('')
   const [offline, setOffline] = useState(!navigator.onLine)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<SessionItem[]>([])
   const [convo, setConvo] = useState<Turn[]>([])
   const [modelReady, setModelReady] = useState(false)
   const [embedReady, setEmbedReady] = useState(false)
+  const [reindexing, setReindexing] = useState(false)
   const [asking, setAsking] = useState(false)
 
   const [folderId, setFolderId] = useState<string | null>(null)
@@ -46,6 +53,11 @@ export function App() {
   const [editing, setEditing] = useState(false)
   const [showWeb, setShowWeb] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showTrash, setShowTrash] = useState(false)
+  const [moveMenu, setMoveMenu] = useState<{ docId: string; x: number; y: number } | null>(null)
+  const [trashItems, setTrashItems] = useState<
+    { id: string; itemType: 'folder' | 'document'; name: string; deletedAt: number; purgeAfter: number }[]
+  >([])
   const [namePrompt, setNamePrompt] = useState<{
     title: string
     defaultValue: string
@@ -72,6 +84,12 @@ export function App() {
   const refreshTree = () => folderApi.tree().then((r) => isOk(r) && setTree(r.data))
   const loadDocs = (fid: string | null) =>
     documentApi.listByFolder(fid).then((r) => isOk(r) && setDocs(r.data as DocListItem[]))
+  const loadSessions = () =>
+    chatApi.listSessions().then((r) => {
+      if (!isOk(r)) return
+      const list = r.data as { id: string; title: string }[]
+      setSessions(list.map((s) => ({ id: s.id, title: s.title })))
+    })
 
   useEffect(() => {
     void refreshTree()
@@ -93,7 +111,8 @@ export function App() {
         setEmbedReady(true)
       }
     })
-    void chatApi.createSession().then((r) => isOk(r) && setSessionId(r.data.id))
+    // 懒创建会话：不在挂载时建空会话（否则会积累空「新对话」），首次提问时才建。
+    void loadSessions()
 
     const offToken = chatApi.onToken((p) => {
       useChatStore.getState().appendToken(p.messageId, p.delta)
@@ -203,6 +222,14 @@ export function App() {
     }
   }
 
+  const moveDocTo = async (docId: string, targetFolderId: string | null) => {
+    const r = await documentApi.move(docId, targetFolderId)
+    if (!isOk(r)) return
+    void refreshTree() // 计数变化
+    void loadDocs(folderId)
+    setMoveMenu(null)
+  }
+
   const uploadFiles = async () => {
     const picked = await documentApi.pickPaths({ directory: false })
     if (!isOk(picked) || picked.data.length === 0) return
@@ -266,6 +293,15 @@ export function App() {
     setEmbedReady(r.data.configured)
   }
 
+  const reindex = async () => {
+    setReindexing(true)
+    try {
+      await settingsApi.reindex()
+    } finally {
+      setReindexing(false)
+    }
+  }
+
   const saveEmbedKey = async (apiKey: string) => {
     if (!currentEmbedId) return
     const sep = currentEmbedId.indexOf(':')
@@ -287,6 +323,8 @@ export function App() {
       useSettingsStore.getState().setEmbedNeedKey(false, null)
       setEmbedReady(true)
       setShowSettings(false)
+      // 嵌入模型/维度可能变，重建全部文档索引。
+      void reindex()
     }
   }
 
@@ -301,16 +339,26 @@ export function App() {
   const messages = convo.map((t) =>
     t.kind === 'user'
       ? { id: t.id, role: 'user' as const, content: t.content }
-      : { id: t.id, role: 'assistant' as const, content: streaming[t.id] ?? '' }
+      : { id: t.id, role: 'assistant' as const, content: streaming[t.id] ?? t.content ?? '' }
   )
 
   const onAsk = async (question: string, scope: { documentIds: string[]; folderIds: string[] }) => {
     setConvo((c) => [...c, { kind: 'user', id: globalThis.crypto.randomUUID(), content: question }])
-    if (!sessionId) return
     useChatStore.getState().setError('')
+    // 懒创建：当前没有会话时先建一个。
+    let sid = sessionId
+    if (!sid) {
+      const cr = await chatApi.createSession()
+      if (!isOk(cr)) {
+        useChatStore.getState().setError('无法创建会话')
+        return
+      }
+      sid = cr.data.id
+      setSessionId(sid)
+    }
     setAsking(true)
     try {
-      const r = (await chatApi.ask({ sessionId, question, scope })) as
+      const r = (await chatApi.ask({ sessionId: sid, question, scope })) as
         | { ok: true }
         | { ok: false; error: { message: string } }
       if (r && r.ok === false) useChatStore.getState().setError(r.error.message)
@@ -318,6 +366,96 @@ export function App() {
       useChatStore.getState().setError('问答失败，请稍后重试。')
     } finally {
       setAsking(false)
+      void loadSessions() // 标题/排序可能因本次提问更新
+    }
+  }
+
+  const newSession = () => {
+    // 懒创建：仅清空当前会话状态，下次提问时才落库，避免空会话堆积。
+    setSessionId(null)
+    setConvo([])
+    useChatStore.getState().clear()
+  }
+
+  const removeSession = async (id: string) => {
+    if (!window.confirm('确认删除该会话？删除后无法恢复。')) return
+    const r = await chatApi.deleteSession(id)
+    if (!isOk(r)) return
+    if (id === sessionId) newSession()
+    void loadSessions()
+  }
+
+  const loadTrash = () =>
+    trashApi.list().then((r) => {
+      if (!isOk(r)) return
+      setTrashItems(
+        r.data as {
+          id: string
+          itemType: 'folder' | 'document'
+          name: string
+          deletedAt: number
+          purgeAfter: number
+        }[]
+      )
+    })
+
+  const openTrash = () => {
+    setShowTrash(true)
+    void loadTrash()
+  }
+
+  const restoreTrash = async (id: string) => {
+    const r = await trashApi.restore(id)
+    if (!isOk(r)) return
+    await loadTrash()
+    void refreshTree()
+    void loadDocs(folderId)
+  }
+
+  const purgeTrash = async (id: string) => {
+    if (!window.confirm('彻底删除后无法恢复，确认？')) return
+    const r = await trashApi.purge(id)
+    if (isOk(r)) void loadTrash()
+  }
+
+  const restoreMany = async (ids: string[]) => {
+    for (const id of ids) await trashApi.restore(id)
+    await loadTrash()
+    void refreshTree()
+    void loadDocs(folderId)
+  }
+
+  const purgeMany = async (ids: string[]) => {
+    if (!window.confirm(`彻底删除选中的 ${ids.length} 项？删除后无法恢复。`)) return
+    for (const id of ids) await trashApi.purge(id)
+    void loadTrash()
+  }
+
+  const switchSession = async (id: string) => {
+    if (id === sessionId) return
+    const r = await chatApi.getMessages(id)
+    if (!isOk(r)) return
+    setSessionId(id)
+    useChatStore.getState().clear()
+    const msgs = r.data as { id: string; role: 'user' | 'assistant'; content: string }[]
+    setConvo(
+      msgs.map((m) =>
+        m.role === 'user'
+          ? { kind: 'user' as const, id: m.id, content: m.content }
+          : { kind: 'assistant' as const, id: m.id, content: m.content }
+      )
+    )
+    // 回填该会话各消息的来源（含文档名），否则历史会话看不到来源。
+    const sr = await chatApi.getSources(id)
+    if (isOk(sr)) {
+      const store = useChatStore.getState()
+      const byMsg = new Map<string, MessageSource[]>()
+      for (const s of sr.data as MessageSource[]) {
+        const list = byMsg.get(s.messageId) ?? []
+        list.push(s)
+        byMsg.set(s.messageId, list)
+      }
+      for (const [mid, list] of byMsg) store.setSources(mid, list)
     }
   }
 
@@ -327,16 +465,24 @@ export function App() {
         <div className="offline-banner">当前处于离线状态：查看、管理与关键词搜索可用，AI 问答暂不可用。</div>
       )}
       {privacy && <div className="privacy-notice-bar">{privacy}</div>}
+      {reindexing && <div className="privacy-notice-bar">正在重建文档索引…</div>}
 
       <div className="layout">
         <aside data-testid="pane-tree" className="pane tree">
           <div className="tree-toolbar">
             <button onClick={createFolder}>新建文件夹</button>
+            <button onClick={openTrash}>回收站</button>
             <button onClick={() => setShowSettings(true)}>设置</button>
           </div>
           <button
             className={`tree-root-entry${folderId === null ? ' active' : ''}`}
             onClick={() => selectFolder(null)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const docId = e.dataTransfer.getData('text/doc-id')
+              if (docId) void moveDocTo(docId, null)
+            }}
           >
             全部文档
           </button>
@@ -347,6 +493,7 @@ export function App() {
             onSelect={selectFolder}
             onDelete={(id) => folderApi.delete(id).then(() => refreshTree())}
             onRename={(id, currentName) => void renameFolder(id, currentName)}
+            onMoveDoc={(docId, fid) => void moveDocTo(docId, fid)}
             selectedId={folderId}
           />
           <SearchPanel
@@ -365,6 +512,19 @@ export function App() {
             <button onClick={() => setShowWeb(true)}>添加网页</button>
           </div>
 
+          {showTrash && (
+            <div data-testid="trash-panel" className="settings-overlay">
+              <button onClick={() => setShowTrash(false)}>关闭</button>
+              <TrashPanel
+                items={trashItems}
+                onRestore={restoreTrash}
+                onPurge={purgeTrash}
+                onRestoreMany={(ids) => void restoreMany(ids)}
+                onPurgeMany={(ids) => void purgeMany(ids)}
+              />
+            </div>
+          )}
+
           {showSettings && (
             <div data-testid="settings-panel" className="settings-overlay">
               <button onClick={() => setShowSettings(false)}>关闭</button>
@@ -380,6 +540,8 @@ export function App() {
                 embedMaskedKey={embedMaskedKey}
                 onSelectEmbed={selectEmbed}
                 onSaveEmbedKey={saveEmbedKey}
+                onReindex={() => void reindex()}
+                reindexing={reindexing}
                 privacyNotice={privacy}
               />
             </div>
@@ -434,10 +596,21 @@ export function App() {
           ) : (
             <ul className="doc-list">
               {docs.map((d) => (
-                <li key={d.id}>
+                <li
+                  key={d.id}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('text/doc-id', d.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setMoveMenu({ docId: d.id, x: e.clientX, y: e.clientY })
+                  }}
+                >
                   <span className="doc-name" onClick={() => void openDocument(d.id)}>
                     {d.name}
                   </span>
+                  <button aria-label={`移动 ${d.name}`} onClick={(e) => setMoveMenu({ docId: d.id, x: e.clientX, y: e.clientY })}>
+                    移动
+                  </button>
                   <button aria-label={`重命名 ${d.name}`} onClick={() => void renameDoc(d.id, d.name)}>
                     改名
                   </button>
@@ -463,6 +636,11 @@ export function App() {
             modelLabel={models.find((m) => m.id === currentModelId)?.label ?? currentModelId}
             thinking={asking}
             embedReady={embedReady}
+            sessions={sessions}
+            currentSessionId={sessionId}
+            onNewSession={newSession}
+            onSelectSession={(id) => void switchSession(id)}
+            onDeleteSession={(id) => void removeSession(id)}
           />
         </section>
       </div>
@@ -480,6 +658,32 @@ export function App() {
             setNamePrompt(null)
           }}
         />
+      )}
+
+      {moveMenu && (
+        <div
+          className="context-menu-backdrop"
+          onClick={() => setMoveMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setMoveMenu(null)
+          }}
+        >
+          <div
+            className="context-menu"
+            style={{ top: moveMenu.y, left: moveMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="context-menu-title">移动到</div>
+            <button onClick={() => void moveDocTo(moveMenu.docId, null)}>全部文档（根目录）</button>
+            {flattenFolders(tree).map((f) => (
+              <button key={f.id} onClick={() => void moveDocTo(moveMenu.docId, f.id)}>
+                {f.name}
+              </button>
+            ))}
+            {tree.length === 0 && <div className="context-menu-empty">暂无文件夹</div>}
+          </div>
+        </div>
       )}
     </div>
   )

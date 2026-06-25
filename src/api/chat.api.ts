@@ -6,7 +6,9 @@ const bridge = (): MDocsApi => (window as unknown as { api: MDocsApi }).api
 export const chatApi = {
   listSessions: () => bridge().chat.listSessions(),
   createSession: () => bridge().chat.createSession(),
+  deleteSession: (sessionId: string) => bridge().chat.deleteSession(sessionId),
   getMessages: (sessionId: string) => bridge().chat.getMessages(sessionId),
+  getSources: (sessionId: string) => bridge().chat.getSources(sessionId),
   ask: (input: { sessionId: string; question: string; scope?: ChatScope }) =>
     bridge().chat.ask(input),
   onToken: (cb: (payload: { messageId: string; delta: string }) => void) =>

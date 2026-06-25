@@ -5,11 +5,14 @@ import type { IpcLike } from './folder.ipc'
 import {
   listSessions,
   createSession,
+  deleteSession,
   getMessages,
+  getSources,
   ask,
   type AskDeps
 } from '../services/chat.service'
 import type { ChatScope } from '../services/rag/scope'
+import { describeError } from '../services/llm/provider'
 
 interface IpcEvent {
   sender: { send: (channel: string, payload: unknown) => void }
@@ -24,8 +27,14 @@ export interface ChatIpcContext {
 export function registerChatIpc(ipcMain: IpcLike, ctx: ChatIpcContext): void {
   ipcMain.handle(CHANNELS.chat.listSessions, () => listSessions(ctx.db))
   ipcMain.handle(CHANNELS.chat.createSession, () => createSession(ctx.db))
+  ipcMain.handle(CHANNELS.chat.deleteSession, (_e, sessionId: string) =>
+    deleteSession(ctx.db, sessionId)
+  )
   ipcMain.handle(CHANNELS.chat.getMessages, (_e, sessionId: string) =>
     getMessages(ctx.db, sessionId)
+  )
+  ipcMain.handle(CHANNELS.chat.getSources, (_e, sessionId: string) =>
+    getSources(ctx.db, sessionId)
   )
   ipcMain.handle(
     CHANNELS.chat.ask,
@@ -38,7 +47,7 @@ export function registerChatIpc(ipcMain: IpcLike, ctx: ChatIpcContext): void {
         return isOk(r) ? { ok: true as const, data: { messageId: r.data.messageId } } : r
       } catch (e) {
         // 嵌入/流式调用抛错（如 Key 无效、网络失败）：回传错误事件并返回 err，避免 IPC 静默拒绝。
-        const message = e instanceof Error ? e.message : '问答失败'
+        const message = describeError(e)
         ev.sender.send(EVENTS.chatError, { messageId: '', code: 'E_CHAT', message })
         return err('E_CHAT', message)
       }
