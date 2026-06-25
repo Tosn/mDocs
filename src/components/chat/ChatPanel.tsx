@@ -21,6 +21,9 @@ interface ChatPanelProps {
   onOpenSource: (documentId: string) => void
   error?: string | null
   modelReady?: boolean
+  modelLabel?: string | null
+  thinking?: boolean
+  embedReady?: boolean
 }
 
 const MENTION_RE = /(?:^|\s)@(\S*)$/
@@ -32,7 +35,10 @@ export function ChatPanel({
   onAsk,
   onOpenSource,
   error,
-  modelReady = true
+  modelReady = true,
+  modelLabel,
+  thinking = false,
+  embedReady = true
 }: ChatPanelProps) {
   const [question, setQuestion] = useState('')
   const [selected, setSelected] = useState<Record<string, boolean>>({})
@@ -122,11 +128,24 @@ export function ChatPanel({
             )}
           </div>
         ))}
+
+        {thinking && (messages.length === 0 || messages[messages.length - 1].role === 'user') && (
+          <div className="msg assistant" data-testid="thinking">
+            <div className="content thinking">
+              思考中
+              <span className="thinking-dots" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {!modelReady && (
-        <div className="chat-disabled-notice">
-          当前未配置 AI 模型，请先在「设置」中配置模型与 API Key。
+        <div className="chat-disabled-notice" role="status">
+          当前没有可用模型，请先在「设置」中配置模型与 API Key。
         </div>
       )}
 
@@ -140,6 +159,19 @@ export function ChatPanel({
               </button>
             </span>
           ))}
+        </div>
+      )}
+
+      {modelReady && !embedReady && (
+        <div className="chat-disabled-notice" role="status">
+          未配置嵌入模型，问答将无法检索文档。请在「设置」中配置「嵌入模型」与其 API Key。
+        </div>
+      )}
+
+      {modelReady && modelLabel && (
+        <div className="composer-model" role="status">
+          <span className="composer-model-dot" aria-hidden="true" />
+          当前模型：{modelLabel}
         </div>
       )}
 

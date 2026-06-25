@@ -50,7 +50,10 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
     settings: {
       listModels: () => invoke(CHANNELS.settings.listModels),
       getActiveModel: () => invoke(CHANNELS.settings.getActiveModel),
+      getActiveEmbedModel: () => invoke(CHANNELS.settings.getActiveEmbedModel),
       switchModel: (id: string) => invoke(CHANNELS.settings.switchModel, id),
+      selectModel: (input: { provider: string; modelName: string; role?: 'chat' | 'embedding' }) =>
+        invoke(CHANNELS.settings.selectModel, input),
       saveModel: (input: unknown) => invoke(CHANNELS.settings.saveModel, input),
       testModel: (id: string) => invoke(CHANNELS.settings.testModel, id),
       getPrivacyNotice: () => invoke(CHANNELS.settings.getPrivacyNotice)

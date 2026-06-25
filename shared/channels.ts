@@ -41,7 +41,9 @@ export const CHANNELS = {
   settings: {
     listModels: 'settings:listModels',
     getActiveModel: 'settings:getActiveModel',
+    getActiveEmbedModel: 'settings:getActiveEmbedModel',
     switchModel: 'settings:switchModel',
+    selectModel: 'settings:selectModel',
     saveModel: 'settings:saveModel',
     testModel: 'settings:testModel',
     getPrivacyNotice: 'settings:getPrivacyNotice'

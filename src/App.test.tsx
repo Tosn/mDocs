@@ -93,7 +93,12 @@ beforeEach(() => {
           createdAt: 0
         }
       })),
-      switchModel: vi.fn(async () => ({ ok: true, data: { needKey: true, maskedKey: null } })),
+      getActiveEmbedModel: vi.fn(async () => ({ ok: true, data: null })),
+      switchModel: vi.fn(async () => ({ ok: true, data: { needKey: false, maskedKey: 'sk-...1234' } })),
+      selectModel: vi.fn(async () => ({
+        ok: true,
+        data: { configId: null, maskedKey: null, configured: false }
+      })),
       saveModel,
       getPrivacyNotice: vi.fn(async () => ({ ok: true, data: { text: 'privacy' } }))
     },
@@ -237,12 +242,28 @@ describe('App', () => {
     await waitFor(() => screen.getByText('设置'))
     fireEvent.click(screen.getByText('设置'))
     const panel = screen.getByTestId('settings-panel')
-    fireEvent.change(within(panel).getByRole('combobox'), { target: { value: 'openai:gpt-4o' } })
-    fireEvent.change(within(panel).getByPlaceholderText(/API Key/), { target: { value: 'k' } })
-    fireEvent.click(within(panel).getByText('保存'))
+    const chatSection = within(panel).getByTestId('model-section-chat')
+    fireEvent.change(within(chatSection).getByRole('combobox'), { target: { value: 'openai:gpt-4o' } })
+    fireEvent.change(within(chatSection).getByPlaceholderText(/API Key/), { target: { value: 'k' } })
+    fireEvent.click(within(chatSection).getByText('保存'))
     await waitFor(() =>
       expect(saveModel).toHaveBeenCalledWith({ provider: 'openai', modelName: 'gpt-4o', apiKey: 'k' })
     )
+  })
+
+  it('disables chat when the selected model has no API key', async () => {
+    render(<App />)
+    const chat = screen.getByTestId('pane-chat')
+    // 挂载时有已配置模型 → 可用，显示当前模型。
+    await waitFor(() => expect(within(chat).getByText(/当前模型/)).toBeTruthy())
+
+    fireEvent.click(screen.getByText('设置'))
+    const panel = screen.getByTestId('settings-panel')
+    const chatSection = within(panel).getByTestId('model-section-chat')
+    // selectModel mock 返回 configured:false → 切到无 Key 的模型应禁用对话。
+    fireEvent.change(within(chatSection).getByRole('combobox'), { target: { value: 'openai:gpt-4o' } })
+    await waitFor(() => expect(within(chat).getByText(/没有可用模型/)).toBeTruthy())
+    expect(within(chat).queryByText(/当前模型/)).toBeNull()
   })
 
   it('offers the opened folder documents as @scope options', async () => {
@@ -255,13 +276,19 @@ describe('App', () => {
     await waitFor(() => expect(within(chat).getByLabelText('note')).toBeTruthy())
   })
 
+  it('shows the active model label (not its db id) above the chat input', async () => {
+    render(<App />)
+    const chat = screen.getByTestId('pane-chat')
+    await waitFor(() => expect(within(chat).getByText(/当前模型：GPT-4o/)).toBeTruthy())
+  })
+
   it('disables chat when no model is configured', async () => {
     ;(window as unknown as { api: { settings: { getActiveModel: unknown } } }).api.settings.getActiveModel = vi.fn(
       async () => ({ ok: true, data: null })
     )
     render(<App />)
     const chat = screen.getByTestId('pane-chat')
-    await waitFor(() => expect(within(chat).getByText(/未配置 AI 模型/)).toBeTruthy())
+    await waitFor(() => expect(within(chat).getByText(/没有可用模型/)).toBeTruthy())
     expect((within(chat).getByPlaceholderText(/配置/) as HTMLTextAreaElement).disabled).toBe(true)
   })
 })

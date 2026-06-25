@@ -13,7 +13,6 @@ import { registerChatIpc } from './ipc/chat.ipc'
 import { registerSettingsIpc } from './ipc/settings.ipc'
 import type { AskDeps } from './services/chat.service'
 import { chatStream, embed } from './services/llm/provider'
-import { getModel } from './services/llm/registry'
 import { getKey } from './services/credential.service'
 
 interface IpcEvent {
@@ -46,33 +45,54 @@ interface ActiveModel {
   apiKey: string
 }
 
-function getActive(db: Database.Database): ActiveModel | null {
-  const row = db.prepare(`SELECT * FROM model_configs WHERE is_active = 1 LIMIT 1`).get() as
-    | { provider: string; model_name: string; base_url: string | null; key_ref: string }
-    | undefined
+interface ModelRow {
+  provider: string
+  model_name: string
+  base_url: string | null
+  key_ref: string
+}
+
+function toActive(db: Database.Database, row: ModelRow | undefined): ActiveModel | null {
   if (!row) return null
   const key = getKey(db, row.key_ref)
   if (!isOk(key)) return null
   return { provider: row.provider, modelName: row.model_name, baseUrl: row.base_url, apiKey: key.data }
 }
 
-function embeddingModelFor(provider: string): string | undefined {
-  return getModel(`${provider}:text-embedding-3-small`)?.modelName
+function getActive(db: Database.Database): ActiveModel | null {
+  const row = db.prepare(`SELECT * FROM model_configs WHERE is_active = 1 LIMIT 1`).get() as
+    | ModelRow
+    | undefined
+  return toActive(db, row)
+}
+
+/** 激活的嵌入模型（与对话模型解耦，存于 settings.active_embed_config）。 */
+function getActiveEmbed(db: Database.Database): ActiveModel | null {
+  const s = db.prepare(`SELECT value FROM settings WHERE key = 'active_embed_config'`).get() as
+    | { value: string }
+    | undefined
+  if (!s) return null
+  const row = db.prepare(`SELECT * FROM model_configs WHERE id = ?`).get(s.value) as
+    | ModelRow
+    | undefined
+  return toActive(db, row)
 }
 
 /** 默认 ask 依赖：用当前激活模型 + 凭据驱动嵌入与流式聊天，并把进度回传渲染层。 */
 export function defaultMakeAskDeps(db: Database.Database): (event: IpcEvent) => AskDeps {
   return (event) => ({
     embedQuery: async (text) => {
-      const m = getActive(db)
-      if (!m) throw new Error('未配置可用模型')
+      const m = getActiveEmbed(db)
+      if (!m) throw new Error('未配置嵌入模型，请在设置中配置「嵌入模型」与其 API Key')
       const r = await embed({
-        model: embeddingModelFor(m.provider) ?? m.modelName,
+        model: m.modelName,
         apiKey: m.apiKey,
         baseUrl: m.baseUrl ?? undefined,
         texts: [text]
       })
-      return isOk(r) ? r.data[0] : []
+      // 嵌入失败时抛错（向上经 chat:error 显示），避免静默返回空向量导致回答空白。
+      if (!isOk(r)) throw new Error(r.error.message)
+      return r.data[0]
     },
     streamChat: async function* (messages) {
       const m = getActive(db)

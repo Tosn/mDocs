@@ -36,6 +36,8 @@ export function App() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [convo, setConvo] = useState<Turn[]>([])
   const [modelReady, setModelReady] = useState(false)
+  const [embedReady, setEmbedReady] = useState(false)
+  const [asking, setAsking] = useState(false)
 
   const [folderId, setFolderId] = useState<string | null>(null)
   const [docs, setDocs] = useState<DocListItem[]>([])
@@ -59,8 +61,13 @@ export function App() {
   const dirty = useEditorStore((s) => s.dirty)
   const models = useSettingsStore((s) => s.models)
   const currentModelId = useSettingsStore((s) => s.currentModelId)
+  const currentConfigId = useSettingsStore((s) => s.currentConfigId)
   const needKey = useSettingsStore((s) => s.needKey)
   const maskedKey = useSettingsStore((s) => s.maskedKey)
+  const currentEmbedId = useSettingsStore((s) => s.currentEmbedId)
+  const embedConfigId = useSettingsStore((s) => s.embedConfigId)
+  const embedNeedKey = useSettingsStore((s) => s.embedNeedKey)
+  const embedMaskedKey = useSettingsStore((s) => s.embedMaskedKey)
 
   const refreshTree = () => folderApi.tree().then((r) => isOk(r) && setTree(r.data))
   const loadDocs = (fid: string | null) =>
@@ -73,8 +80,17 @@ export function App() {
     void settingsApi.listModels().then((r) => isOk(r) && useSettingsStore.getState().setModels(r.data))
     void settingsApi.getActiveModel().then((r) => {
       if (isOk(r) && r.data) {
-        useSettingsStore.getState().setActive(r.data.id)
+        // 统一用注册表 id（provider:modelName），与选择/保存逻辑一致，
+        // 也便于按 id 取模型 label；r.data.id 是数据库 UUID，不能直接用。
+        useSettingsStore.getState().setActive(`${r.data.provider}:${r.data.modelName}`)
         setModelReady(true)
+      }
+    })
+    void settingsApi.getActiveEmbedModel().then((r) => {
+      if (isOk(r) && r.data) {
+        useSettingsStore.getState().setActiveEmbed(`${r.data.provider}:${r.data.modelName}`)
+        useSettingsStore.getState().setEmbedConfigId(r.data.id)
+        setEmbedReady(true)
       }
     })
     void chatApi.createSession().then((r) => isOk(r) && setSessionId(r.data.id))
@@ -194,20 +210,82 @@ export function App() {
     if (isOk(r)) void loadDocs(folderId)
   }
 
-  const selectModel = (id: string) => {
+  const selectModel = async (id: string) => {
+    const sep = id.indexOf(':')
+    const provider = id.slice(0, sep)
+    const modelName = id.slice(sep + 1)
+    // 先同步展示 Key 区（空）并置为不可用，再异步回填密文 Key / 可用状态。
     useSettingsStore.getState().setActive(id)
     useSettingsStore.getState().setNeedKey(true, null)
+    useSettingsStore.getState().setConfigId(null)
+    setModelReady(false)
+    const r = await settingsApi.selectModel({ provider, modelName })
+    if (!isOk(r)) return
+    useSettingsStore.getState().setNeedKey(true, r.data.maskedKey)
+    useSettingsStore.getState().setConfigId(r.data.configId)
+    // 未配置 Key 的模型不可用：对话保持 disabled，上方提示「没有可用模型」。
+    setModelReady(r.data.configured)
   }
 
   const saveKey = async (apiKey: string) => {
     if (!currentModelId) return
+    // 未改动密文（apiKey 仍等于回显的 maskedKey）且已有配置：仅激活，不重存 Key。
+    if (maskedKey !== null && apiKey === maskedKey && currentConfigId) {
+      const r = await settingsApi.switchModel(currentConfigId)
+      if (isOk(r)) {
+        useSettingsStore.getState().setNeedKey(false, null)
+        setModelReady(true)
+        setShowSettings(false)
+      }
+      return
+    }
     const sep = currentModelId.indexOf(':')
     const provider = currentModelId.slice(0, sep)
     const modelName = currentModelId.slice(sep + 1)
     const r = await settingsApi.saveModel({ provider, modelName, apiKey })
     if (isOk(r)) {
+      useSettingsStore.getState().setConfigId(r.data.id)
       useSettingsStore.getState().setNeedKey(false, null)
       setModelReady(true)
+      setShowSettings(false)
+    }
+  }
+
+  const selectEmbed = async (id: string) => {
+    const sep = id.indexOf(':')
+    const provider = id.slice(0, sep)
+    const modelName = id.slice(sep + 1)
+    useSettingsStore.getState().setActiveEmbed(id)
+    useSettingsStore.getState().setEmbedNeedKey(true, null)
+    useSettingsStore.getState().setEmbedConfigId(null)
+    setEmbedReady(false)
+    const r = await settingsApi.selectModel({ provider, modelName, role: 'embedding' })
+    if (!isOk(r)) return
+    useSettingsStore.getState().setEmbedNeedKey(true, r.data.maskedKey)
+    useSettingsStore.getState().setEmbedConfigId(r.data.configId)
+    setEmbedReady(r.data.configured)
+  }
+
+  const saveEmbedKey = async (apiKey: string) => {
+    if (!currentEmbedId) return
+    const sep = currentEmbedId.indexOf(':')
+    const provider = currentEmbedId.slice(0, sep)
+    const modelName = currentEmbedId.slice(sep + 1)
+    // 未改动密文且已配置：重新激活该嵌入模型即可（不重存 Key）。
+    if (embedMaskedKey !== null && apiKey === embedMaskedKey && embedConfigId) {
+      const r = await settingsApi.selectModel({ provider, modelName, role: 'embedding' })
+      if (isOk(r)) {
+        useSettingsStore.getState().setEmbedNeedKey(false, null)
+        setEmbedReady(true)
+        setShowSettings(false)
+      }
+      return
+    }
+    const r = await settingsApi.saveModel({ provider, modelName, apiKey, role: 'embedding' })
+    if (isOk(r)) {
+      useSettingsStore.getState().setEmbedConfigId(r.data.id)
+      useSettingsStore.getState().setEmbedNeedKey(false, null)
+      setEmbedReady(true)
       setShowSettings(false)
     }
   }
@@ -230,7 +308,17 @@ export function App() {
     setConvo((c) => [...c, { kind: 'user', id: globalThis.crypto.randomUUID(), content: question }])
     if (!sessionId) return
     useChatStore.getState().setError('')
-    await chatApi.ask({ sessionId, question, scope })
+    setAsking(true)
+    try {
+      const r = (await chatApi.ask({ sessionId, question, scope })) as
+        | { ok: true }
+        | { ok: false; error: { message: string } }
+      if (r && r.ok === false) useChatStore.getState().setError(r.error.message)
+    } catch {
+      useChatStore.getState().setError('问答失败，请稍后重试。')
+    } finally {
+      setAsking(false)
+    }
   }
 
   return (
@@ -285,9 +373,14 @@ export function App() {
                 currentModelId={currentModelId}
                 needKey={needKey}
                 maskedKey={maskedKey}
-                privacyNotice={privacy}
                 onSelectModel={selectModel}
                 onSaveKey={saveKey}
+                currentEmbedId={currentEmbedId}
+                embedNeedKey={embedNeedKey}
+                embedMaskedKey={embedMaskedKey}
+                onSelectEmbed={selectEmbed}
+                onSaveEmbedKey={saveEmbedKey}
+                privacyNotice={privacy}
               />
             </div>
           )}
@@ -367,6 +460,9 @@ export function App() {
             onOpenSource={(documentId) => void openDocument(documentId)}
             error={error}
             modelReady={modelReady}
+            modelLabel={models.find((m) => m.id === currentModelId)?.label ?? currentModelId}
+            thinking={asking}
+            embedReady={embedReady}
           />
         </section>
       </div>

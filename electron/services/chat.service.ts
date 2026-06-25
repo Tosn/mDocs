@@ -104,6 +104,8 @@ export async function ask(
 
   const reply = (content: string): Result<{ messageId: string; content: string }> => {
     const id = insertMessage(db, input.sessionId, 'assistant', content)
+    // 提前返回的固定回复也要回传渲染层，否则界面只在收到 token 时才建气泡 → 什么都不显示。
+    deps.onToken?.(id, content)
     return ok({ messageId: id, content })
   }
 
@@ -133,6 +135,12 @@ export async function ask(
   for await (const delta of deps.streamChat(messages)) {
     content += delta
     deps.onToken?.(messageId, delta)
+  }
+
+  // 模型未产出任何 token 时给出回退提示，避免界面出现空白气泡。
+  if (content === '') {
+    content = '（模型未返回内容）'
+    deps.onToken?.(messageId, content)
   }
 
   insertMessage(db, input.sessionId, 'assistant', content, messageId)

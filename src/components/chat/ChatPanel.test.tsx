@@ -66,9 +66,57 @@ describe('ChatPanel', () => {
         modelReady={false}
       />
     )
-    expect(screen.getByText(/未配置 AI 模型/)).toBeTruthy()
+    expect(screen.getByText(/没有可用模型/)).toBeTruthy()
     expect((screen.getByPlaceholderText(/配置/) as HTMLTextAreaElement).disabled).toBe(true)
     expect((screen.getByText('发送') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows a thinking bubble while awaiting the answer', () => {
+    const { rerender } = render(
+      <ChatPanel
+        messages={[{ id: 'u1', role: 'user', content: '关于 claude skill' }]}
+        sources={{}}
+        scopeOptions={[]}
+        onAsk={vi.fn()}
+        onOpenSource={vi.fn()}
+        modelReady
+        thinking
+      />
+    )
+    expect(screen.getByTestId('thinking')).toBeTruthy()
+    expect(screen.getByText('思考中')).toBeTruthy()
+
+    // 首个 token 到达（出现助手气泡）后，思考态消失。
+    rerender(
+      <ChatPanel
+        messages={[
+          { id: 'u1', role: 'user', content: '关于 claude skill' },
+          { id: 'a1', role: 'assistant', content: '使用指南' }
+        ]}
+        sources={{}}
+        scopeOptions={[]}
+        onAsk={vi.fn()}
+        onOpenSource={vi.fn()}
+        modelReady
+        thinking
+      />
+    )
+    expect(screen.queryByTestId('thinking')).toBeNull()
+  })
+
+  it('shows the current model above the composer when ready', () => {
+    render(
+      <ChatPanel
+        messages={[]}
+        sources={{}}
+        scopeOptions={[]}
+        onAsk={vi.fn()}
+        onOpenSource={vi.fn()}
+        modelReady
+        modelLabel="OpenAI GPT-4o"
+      />
+    )
+    expect(screen.getByText(/当前模型：OpenAI GPT-4o/)).toBeTruthy()
   })
 
   it('renders messages and clickable sources', () => {

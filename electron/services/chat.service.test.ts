@@ -61,6 +61,19 @@ describe('chat.service', () => {
     if (isOk(r)) expect(r.data.content).toContain('请先添加文档')
   })
 
+  it('emits the early reply via onToken so the renderer can show it', async () => {
+    const s = createSession(db)
+    if (!isOk(s)) throw new Error('setup')
+    const tokens: string[] = []
+    const r = await ask(
+      db,
+      { sessionId: s.data.id, question: 'hi' },
+      { ...baseDeps, onToken: (_id, delta) => tokens.push(delta) }
+    )
+    expect(isOk(r)).toBe(true)
+    expect(tokens.join('')).toContain('请先添加文档')
+  })
+
   it('runs the full RAG loop: streams answer and persists sources', async () => {
     const s = createSession(db)
     if (!isOk(s)) throw new Error('setup')
@@ -92,6 +105,27 @@ describe('chat.service', () => {
       expect(msgs.data.some((m) => m.role === 'assistant' && m.content === 'Answer')).toBe(true)
       expect(msgs.data.some((m) => m.role === 'user')).toBe(true)
     }
+  })
+
+  it('falls back to a placeholder when the model streams no tokens', async () => {
+    const s = createSession(db)
+    if (!isOk(s)) throw new Error('setup')
+    const docId = randomUUID()
+    addDocRow(db, docId, 'doc')
+    addChunk(db, docId, randomUUID(), 'relevant fact', vec([1, 0, 0]))
+
+    const tokens: string[] = []
+    const emptyStream: AskDeps['streamChat'] = async function* () {
+      /* 模型未产出任何 token */
+    }
+    const r = await ask(
+      db,
+      { sessionId: s.data.id, question: 'q' },
+      { ...baseDeps, streamChat: emptyStream, onToken: (_id, delta) => tokens.push(delta) }
+    )
+    expect(isOk(r)).toBe(true)
+    if (isOk(r)) expect(r.data.content).toContain('未返回内容')
+    expect(tokens.join('')).toContain('未返回内容')
   })
 
   it('answers not-found when nothing is retrieved', async () => {

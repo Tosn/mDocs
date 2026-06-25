@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
-import { CHANNELS } from '@shared/channels'
-import { isOk } from '@shared/types'
+import { CHANNELS, EVENTS } from '@shared/channels'
+import { isOk, err } from '@shared/types'
 import type { IpcLike } from './folder.ipc'
 import {
   listSessions,
@@ -30,10 +30,18 @@ export function registerChatIpc(ipcMain: IpcLike, ctx: ChatIpcContext): void {
   ipcMain.handle(
     CHANNELS.chat.ask,
     async (event, input: { sessionId: string; question: string; scope?: ChatScope }) => {
-      const deps = ctx.makeAskDeps(event as IpcEvent)
-      const r = await ask(ctx.db, input, deps)
-      // 流式内容已经过事件回传；此处只回 messageId。
-      return isOk(r) ? { ok: true as const, data: { messageId: r.data.messageId } } : r
+      const ev = event as IpcEvent
+      try {
+        const deps = ctx.makeAskDeps(ev)
+        const r = await ask(ctx.db, input, deps)
+        // 流式内容已经过事件回传；此处只回 messageId。
+        return isOk(r) ? { ok: true as const, data: { messageId: r.data.messageId } } : r
+      } catch (e) {
+        // 嵌入/流式调用抛错（如 Key 无效、网络失败）：回传错误事件并返回 err，避免 IPC 静默拒绝。
+        const message = e instanceof Error ? e.message : '问答失败'
+        ev.sender.send(EVENTS.chatError, { messageId: '', code: 'E_CHAT', message })
+        return err('E_CHAT', message)
+      }
     }
   )
 }
