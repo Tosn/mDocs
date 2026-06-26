@@ -33,6 +33,15 @@ describe('parsePdf', () => {
     }
   })
 
+  it('forwards a plain Uint8Array to pdf.js even when given a Buffer', async () => {
+    // pdf.js 4.x 拒绝 Buffer，必须传纯 Uint8Array。
+    getDocument.mockReturnValue(fakeDoc([['x']]))
+    await parsePdf(Buffer.from([1, 2, 3]))
+    const arg = getDocument.mock.calls[0][0] as { data: unknown }
+    expect(arg.data).toBeInstanceOf(Uint8Array)
+    expect(Buffer.isBuffer(arg.data)).toBe(false)
+  })
+
   it('returns E_PARSE_PDF on corrupt input', async () => {
     getDocument.mockReturnValue({ promise: Promise.reject(new Error('bad pdf')) })
     const r = await parsePdf(new Uint8Array([0]))

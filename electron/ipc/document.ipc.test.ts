@@ -99,4 +99,14 @@ describe('document.ipc', () => {
     expect(got.ok).toBe(true)
     expect(got.data.contentText).toBe('hello')
   })
+
+  it('getFileBytes returns an error for a document without a file', async () => {
+    const created = (await ipc.invoke(CHANNELS.document.createDoc, {
+      name: 'n',
+      folderId: null,
+      contentText: 'x'
+    })) as { ok: true; data: { id: string } }
+    const r = (await ipc.invoke(CHANNELS.document.getFileBytes, created.data.id)) as { ok: boolean }
+    expect(r.ok).toBe(false) // 文本文档无 file_path
+  })
 })

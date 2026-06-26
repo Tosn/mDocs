@@ -7,6 +7,7 @@ export const documentApi = {
   listAll: () => bridge().document.listAll(),
   get: (id: string) => bridge().document.get(id),
   getFileUrl: (id: string) => bridge().document.getFileUrl(id),
+  getFileBytes: (id: string) => bridge().document.getFileBytes(id),
   pickPaths: (opts: { directory?: boolean }) => bridge().document.pickPaths(opts),
   upload: (input: { paths: string[]; folderId: string | null; onConflict?: string }) =>
     bridge().document.upload(input),

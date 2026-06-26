@@ -19,6 +19,7 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
       listAll: () => invoke(CHANNELS.document.listAll),
       get: (id: string) => invoke(CHANNELS.document.get, id),
       getFileUrl: (id: string) => invoke(CHANNELS.document.getFileUrl, id),
+      getFileBytes: (id: string) => invoke(CHANNELS.document.getFileBytes, id),
       pickPaths: (opts: { directory?: boolean }) => invoke(CHANNELS.document.pickPaths, opts),
       upload: (input: unknown) => invoke(CHANNELS.document.upload, input),
       uploadFolder: (input: { dirPath: string; folderId: string | null }) =>

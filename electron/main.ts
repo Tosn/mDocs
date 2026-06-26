@@ -141,7 +141,12 @@ async function startApp(): Promise<void> {
     const win = new BrowserWindow({
       width: 1280,
       height: 800,
-      webPreferences: { preload: join(__dirname, '../preload/index.js'), contextIsolation: true }
+      // plugins: true 启用 Chromium 内置 PDF 查看器（用于 iframe 预览 PDF）。
+      webPreferences: {
+        preload: join(__dirname, '../preload/index.js'),
+        contextIsolation: true,
+        plugins: true
+      }
     })
     if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
     else win.loadFile(join(__dirname, '../renderer/index.html'))

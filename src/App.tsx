@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TreeNode, Document, DocType, MessageSource } from '@shared/types'
 import { isOk } from '@shared/types'
 import { folderApi } from './api/folder.api'
@@ -52,6 +52,7 @@ export function App() {
   const [docs, setDocs] = useState<DocListItem[]>([])
   const [openDoc, setOpenDoc] = useState<Document | null>(null)
   const [fileUrl, setFileUrl] = useState<string | null>(null)
+  const pdfBlobRef = useRef<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [showWeb, setShowWeb] = useState(false)
   const [webTarget, setWebTarget] = useState<string | null>(null)
@@ -157,15 +158,31 @@ export function App() {
     setFolderId(id)
   }
 
+  const revokePdfBlob = () => {
+    if (pdfBlobRef.current) {
+      URL.revokeObjectURL(pdfBlobRef.current)
+      pdfBlobRef.current = null
+    }
+  }
+
   const openDocument = async (id: string) => {
     const r = await documentApi.get(id)
     if (!isOk(r)) return
     setOpenDoc(r.data)
     setEditing(false)
     useEditorStore.getState().open(r.data.id, r.data.contentText)
+    revokePdfBlob()
     if (r.data.type === 'pdf') {
-      const f = await documentApi.getFileUrl(id)
-      setFileUrl(isOk(f) ? f.data : null)
+      // 取字节在渲染层造 Blob URL：同源、可被内置 PDF 查看器渲染（规避 file:// 跨源）。
+      const b = await documentApi.getFileBytes(id)
+      if (isOk(b)) {
+        const bytes = Uint8Array.from(atob(b.data as string), (c) => c.charCodeAt(0))
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+        pdfBlobRef.current = url
+        setFileUrl(url)
+      } else {
+        setFileUrl(null)
+      }
     } else {
       setFileUrl(null)
     }
@@ -226,6 +243,8 @@ export function App() {
     if (isOk(r)) {
       if (openDoc?.id === id) {
         setOpenDoc(null)
+        setFileUrl(null)
+        revokePdfBlob()
         useEditorStore.getState().close()
       }
       refreshAll()
@@ -681,6 +700,8 @@ export function App() {
                 <button
                   onClick={() => {
                     setOpenDoc(null)
+                    setFileUrl(null)
+                    revokePdfBlob()
                     useEditorStore.getState().close()
                   }}
                 >

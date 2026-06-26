@@ -26,7 +26,9 @@ export async function parsePdf(data: Uint8Array | Buffer): Promise<Result<string
   try {
     // pdf.js 是 ESM-only，CommonJS 主进程需以动态 import 加载（避免 ERR_REQUIRE_ESM）。
     const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
+    // pdf.js 4.x 严格要求纯 Uint8Array；Node 的 Buffer 虽是其子类却被拒绝，
+    // 故复制为纯 Uint8Array（new Uint8Array(buffer) 会得到 constructor 为 Uint8Array 的实例）。
+    const bytes = new Uint8Array(data)
     const pdf = await getDocument({ data: bytes }).promise
 
     const pages: string[] = []

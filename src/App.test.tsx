@@ -74,6 +74,7 @@ beforeEach(() => {
       uploadFolder: vi.fn(async () => ({ ok: true, data: { added: 0, skipped: 0, failed: 0 } })),
       get: vi.fn(async () => ({ ok: true, data: mdDoc })),
       getFileUrl: vi.fn(async () => ({ ok: true, data: 'file:///x.pdf' })),
+      getFileBytes: vi.fn(async () => ({ ok: true, data: '' })),
       updateContent,
       createDoc: createDocMock,
       suggestName,

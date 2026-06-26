@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
 import { pathToFileURL } from 'node:url'
+import { readFileSync } from 'node:fs'
 import { CHANNELS } from '@shared/channels'
 import { ok, err, isOk, type Document } from '@shared/types'
 import type { IpcLike } from './folder.ipc'
@@ -102,6 +103,19 @@ export function registerDocumentIpc(
       | undefined
     if (!row || !row.file_path) return err('E_NOT_FOUND', '该文档无可预览文件')
     return ok(pathToFileURL(row.file_path).href)
+  })
+
+  // 返回文件的 base64（渲染层据此造 Blob URL 预览，规避 file:// 跨源 + 启用插件渲染 PDF）。
+  ipcMain.handle(CHANNELS.document.getFileBytes, (_e, id: string) => {
+    const row = db.prepare(`SELECT file_path FROM documents WHERE id = ?`).get(id) as
+      | { file_path: string }
+      | undefined
+    if (!row || !row.file_path) return err('E_NOT_FOUND', '该文档无可预览文件')
+    try {
+      return ok(readFileSync(row.file_path).toString('base64'))
+    } catch (e) {
+      return err('E_READ', `读取文件失败：${(e as Error).message}`)
+    }
   })
 
   ipcMain.handle(

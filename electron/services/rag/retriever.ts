@@ -44,18 +44,25 @@ export function retrieve(
   const topK = opts?.topK ?? 5
   const ids = opts?.documentIds
 
+  // 只检索未删除文档的块：回收站（软删）/已彻底删除的文档不参与检索，也不出现在来源。
   let chunkRows: ChunkRow[]
   if (ids !== undefined) {
     if (ids.length === 0) return ok([])
     const ph = ids.map(() => '?').join(',')
     chunkRows = db
       .prepare(
-        `SELECT id, document_id, text, char_start, char_end FROM doc_chunks WHERE document_id IN (${ph})`
+        `SELECT c.id, c.document_id, c.text, c.char_start, c.char_end
+         FROM doc_chunks c JOIN documents d ON d.id = c.document_id
+         WHERE d.deleted_at IS NULL AND c.document_id IN (${ph})`
       )
       .all(...ids) as ChunkRow[]
   } else {
     chunkRows = db
-      .prepare(`SELECT id, document_id, text, char_start, char_end FROM doc_chunks`)
+      .prepare(
+        `SELECT c.id, c.document_id, c.text, c.char_start, c.char_end
+         FROM doc_chunks c JOIN documents d ON d.id = c.document_id
+         WHERE d.deleted_at IS NULL`
+      )
       .all() as ChunkRow[]
   }
 
