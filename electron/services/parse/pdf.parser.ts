@@ -1,5 +1,22 @@
 import { ok, err, type Result } from '@shared/types'
 
+// pdf.js 4.x 用到 Promise.withResolvers（Node 22+ / Electron 34+ 才有）。
+// 应用跑在 Electron 33 = Node 20，缺该 API 会导致 PDF 解析直接抛错，故在此兜底。
+const P = Promise as unknown as {
+  withResolvers?: <T>() => { promise: Promise<T>; resolve: (v: T) => void; reject: (e: unknown) => void }
+}
+if (typeof P.withResolvers !== 'function') {
+  P.withResolvers = function <T>() {
+    let resolve!: (v: T) => void
+    let reject!: (e: unknown) => void
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+}
+
 interface TextItem {
   str?: string
 }

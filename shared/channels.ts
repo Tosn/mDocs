@@ -14,6 +14,7 @@ export const CHANNELS = {
     getFileUrl: 'document:getFileUrl',
     pickPaths: 'document:pickPaths',
     upload: 'document:upload',
+    uploadFolder: 'document:uploadFolder',
     importFolder: 'document:importFolder',
     createDoc: 'document:createDoc',
     suggestName: 'document:suggestName',
@@ -41,6 +42,10 @@ export const CHANNELS = {
     getMessages: 'chat:getMessages',
     getSources: 'chat:getSources',
     ask: 'chat:ask'
+  },
+  backup: {
+    export: 'backup:export',
+    import: 'backup:import'
   },
   settings: {
     listModels: 'settings:listModels',

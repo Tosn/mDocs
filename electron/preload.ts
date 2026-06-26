@@ -21,6 +21,8 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
       getFileUrl: (id: string) => invoke(CHANNELS.document.getFileUrl, id),
       pickPaths: (opts: { directory?: boolean }) => invoke(CHANNELS.document.pickPaths, opts),
       upload: (input: unknown) => invoke(CHANNELS.document.upload, input),
+      uploadFolder: (input: { dirPath: string; folderId: string | null }) =>
+        invoke(CHANNELS.document.uploadFolder, input),
       importFolder: (input: unknown) => invoke(CHANNELS.document.importFolder, input),
       createDoc: (input: unknown) => invoke(CHANNELS.document.createDoc, input),
       suggestName: (input: { name: string; folderId: string | null }) =>
@@ -33,6 +35,10 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
     },
     search: {
       keyword: (input: unknown) => invoke(CHANNELS.search.keyword, input)
+    },
+    backup: {
+      export: () => invoke(CHANNELS.backup.export),
+      import: () => invoke(CHANNELS.backup.import)
     },
     trash: {
       list: () => invoke(CHANNELS.trash.list),

@@ -86,6 +86,8 @@ interface SettingsPanelProps {
   onSaveEmbedKey: (apiKey: string) => void
   onReindex?: () => void
   reindexing?: boolean
+  onExport?: () => void
+  onImport?: () => void
   privacyNotice: string
 }
 
@@ -103,6 +105,8 @@ export function SettingsPanel({
   onSaveEmbedKey,
   onReindex,
   reindexing = false,
+  onExport,
+  onImport,
   privacyNotice
 }: SettingsPanelProps) {
   const chatModels = models.filter((m) => m.kind === 'chat')
@@ -140,6 +144,19 @@ export function SettingsPanel({
             {reindexing ? '重建索引中…' : '重建文档索引'}
           </button>
           <span className="api-key-hint">换嵌入模型或导入大量文档后，可手动重建索引。</span>
+        </div>
+      )}
+
+      {(onExport || onImport) && (
+        <div className="data-migration" data-testid="data-migration">
+          <span className="data-migration-title">数据迁移</span>
+          <div className="data-migration-actions">
+            {onExport && <button onClick={onExport}>导出文档库</button>}
+            {onImport && <button onClick={onImport}>导入文档库</button>}
+          </div>
+          <span className="api-key-hint">
+            导出为单个 JSON（含 PDF），换电脑后用「导入」即可迁移文件夹与文档（不含模型/会话）。
+          </span>
         </div>
       )}
 

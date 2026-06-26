@@ -10,6 +10,7 @@ import {
   moveDoc,
   deleteDoc,
   upload,
+  uploadTree,
   importFolder,
   uniqueName
 } from '../services/document.service'
@@ -115,6 +116,14 @@ export function registerDocumentIpc(
     CHANNELS.document.importFolder,
     async (_e, input: { dirPath: string; folderId: string | null }) => {
       const r = await importFolder(db, { ...input, storageDir: ctx.storageDir })
+      if (isOk(r)) indexLater()
+      return r
+    }
+  )
+  ipcMain.handle(
+    CHANNELS.document.uploadFolder,
+    async (_e, input: { dirPath: string; folderId: string | null }) => {
+      const r = await uploadTree(db, { ...input, storageDir: ctx.storageDir })
       if (isOk(r)) indexLater()
       return r
     }

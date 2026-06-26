@@ -22,6 +22,7 @@ import { SettingsPanel } from './components/settings/SettingsPanel'
 import { TrashPanel } from './components/trash/TrashPanel'
 import { PromptDialog } from './components/common/PromptDialog'
 import { trashApi } from './api/trash.api'
+import { backupApi } from './api/backup.api'
 
 type Turn =
   | { kind: 'user'; id: string; content: string }
@@ -240,6 +241,26 @@ export function App() {
     const picked = await documentApi.pickPaths({ directory: false })
     if (!isOk(picked) || picked.data.length === 0) return
     const r = await documentApi.upload({ paths: picked.data, folderId: target })
+    if (!isOk(r)) return
+    refreshAll()
+    // 有文件被跳过（如解析失败/不支持格式）时给出明确反馈，避免「没反应」。
+    const rep = r.data as { added: unknown[]; skipped: { path: string; reason: string }[] }
+    if (rep.skipped?.length) {
+      const lines = rep.skipped.map((s) => `· ${s.path.split(/[\\/]/).pop()}：${s.reason}`).join('\n')
+      window.alert(`已添加 ${rep.added.length} 个，跳过 ${rep.skipped.length} 个：\n${lines}`)
+    }
+  }
+
+  const uploadFolder = async (target: string | null = folderId) => {
+    const picked = await documentApi.pickPaths({ directory: true })
+    if (!isOk(picked) || picked.data.length === 0) return
+    for (const dirPath of picked.data) await documentApi.uploadFolder({ dirPath, folderId: target })
+    refreshAll()
+  }
+
+  const exportLibrary = () => void backupApi.export()
+  const importLibrary = async () => {
+    const r = await backupApi.import()
     if (isOk(r)) refreshAll()
   }
 
@@ -268,6 +289,7 @@ export function App() {
       items.push(
         { label: '新建文档', onClick: () => void createNew(null) },
         { label: '上传文件', onClick: () => void uploadFiles(null) },
+        { label: '上传文件夹', onClick: () => void uploadFolder(null) },
         { label: '添加网页', onClick: () => addWeb(null) },
         'separator',
         { label: '新建文件夹', onClick: () => void createFolder(null) }
@@ -276,7 +298,8 @@ export function App() {
       const fid = target.folderId
       items.push(
         { label: '在此新建文档', onClick: () => void createNew(fid) },
-        { label: '上传到此', onClick: () => void uploadFiles(fid) },
+        { label: '上传文件到此', onClick: () => void uploadFiles(fid) },
+        { label: '上传文件夹到此', onClick: () => void uploadFolder(fid) },
         { label: '添加网页到此', onClick: () => addWeb(fid) },
         { label: '新建子文件夹', onClick: () => void createFolder(fid) },
         'separator',
@@ -630,6 +653,8 @@ export function App() {
                 onSaveEmbedKey={saveEmbedKey}
                 onReindex={() => void reindex()}
                 reindexing={reindexing}
+                onExport={exportLibrary}
+                onImport={() => void importLibrary()}
                 privacyNotice={privacy}
               />
             </div>

@@ -11,6 +11,7 @@ import {
   moveDoc,
   deleteDoc,
   upload,
+  uploadTree,
   importFolder,
   uniqueName
 } from './document.service'
@@ -53,6 +54,32 @@ describe('document.service', () => {
     const r = moveDoc(db, doc.data.id, 'fold')
     expect(isOk(r)).toBe(true)
     if (isOk(r)) expect(r.data.name).toBe('dup (1)')
+  })
+
+  it('uploadTree mirrors the folder hierarchy and only ingests md/txt/pdf', async () => {
+    const root = join(work, 'Proj')
+    mkdirSync(join(root, 'sub'), { recursive: true })
+    writeFileSync(join(root, 'a.md'), '# a')
+    writeFileSync(join(root, 'ignore.png'), 'x')
+    writeFileSync(join(root, 'sub', 'b.txt'), 'b')
+
+    const r = await uploadTree(db, { dirPath: root, folderId: null, storageDir: storage })
+    expect(isOk(r)).toBe(true)
+    if (isOk(r)) {
+      expect(r.data.added).toBe(2) // a.md + b.txt
+      expect(r.data.skipped).toBe(1) // ignore.png
+    }
+    // 文件夹层级：Proj / Proj-sub 都建出来了
+    const folders = db.prepare(`SELECT name FROM folders`).all() as { name: string }[]
+    const names = folders.map((f) => f.name)
+    expect(names).toContain('Proj')
+    expect(names).toContain('sub')
+    // b.txt 在 sub 文件夹下
+    const sub = db.prepare(`SELECT id FROM folders WHERE name = 'sub'`).get() as { id: string }
+    const inSub = db.prepare(`SELECT name FROM documents WHERE folder_id = ?`).get(sub.id) as {
+      name: string
+    }
+    expect(inSub.name).toBe('b.txt')
   })
 
   it('createDoc infers type from the name extension', () => {

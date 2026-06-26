@@ -12,6 +12,8 @@ export const documentApi = {
     bridge().document.upload(input),
   importFolder: (input: { dirPath: string; folderId: string | null }) =>
     bridge().document.importFolder(input),
+  uploadFolder: (input: { dirPath: string; folderId: string | null }) =>
+    bridge().document.uploadFolder(input),
   createDoc: (input: { name: string; folderId: string | null; contentText: string }) =>
     bridge().document.createDoc(input),
   suggestName: (input: { name: string; folderId: string | null }) =>

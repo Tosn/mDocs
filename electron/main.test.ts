@@ -52,7 +52,8 @@ describe('main bootstrap', () => {
       CHANNELS.crawl.fromUrl,
       CHANNELS.crawl.fromUrlInteractive,
       CHANNELS.chat.ask,
-      CHANNELS.settings.listModels
+      CHANNELS.settings.listModels,
+      CHANNELS.backup.export
     ]
     for (const c of expected) expect(ipc.channels.has(c)).toBe(true)
   })

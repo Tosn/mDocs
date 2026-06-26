@@ -1345,6 +1345,23 @@ textarea::placeholder {
   color: var(--fg-subtle);
 }
 
+.settings-panel .data-migration {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.settings-panel .data-migration-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+.settings-panel .data-migration-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .settings-panel .reindex-row {
   display: flex;
   flex-wrap: wrap;

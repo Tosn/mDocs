@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
 import { randomUUID, createHash } from 'node:crypto'
-import { readFileSync, statSync, readdirSync, copyFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, statSync, readdirSync, copyFileSync, mkdirSync, type Dirent } from 'node:fs'
 import { join, extname, basename } from 'node:path'
 import {
   ok,
@@ -362,6 +362,63 @@ export async function upload(
     }
   }
   return ok({ added, skipped })
+}
+
+function insertFolderRow(db: Database.Database, name: string, parentId: string | null): string {
+  const id = randomUUID()
+  const now = Date.now()
+  db.prepare(
+    `INSERT INTO folders (id, name, parent_id, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, NULL)`
+  ).run(id, name, parentId, now, now)
+  return id
+}
+
+/**
+ * 文件夹上传（保留原层级）：以所选目录名建顶层文件夹，递归镜像子目录为文件夹，
+ * 仅收 md/txt/pdf 文件到对应文件夹，其它类型跳过。
+ */
+export async function uploadTree(
+  db: Database.Database,
+  input: { dirPath: string; folderId: string | null; storageDir?: string }
+): Promise<Result<ImportReport>> {
+  let added = 0
+  let skipped = 0
+  let failed = 0
+
+  const walk = async (dir: string, parentFolderId: string | null): Promise<void> => {
+    let entries: Dirent[]
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      failed += 1
+      return
+    }
+    for (const e of entries) {
+      const full = join(dir, e.name)
+      if (e.isDirectory()) {
+        const fid = insertFolderRow(db, e.name, parentFolderId)
+        await walk(full, fid)
+      } else if (e.isFile()) {
+        const type = EXT_TYPE[extname(e.name).toLowerCase()]
+        if (!type) {
+          skipped += 1
+          continue
+        }
+        const res = await addFromFile(db, full, type, parentFolderId, input.storageDir, 'keepBoth')
+        if (isOk(res)) {
+          if (res.data) added += 1
+          else skipped += 1
+        } else {
+          failed += 1
+        }
+      }
+    }
+  }
+
+  const top = basename(input.dirPath) || '导入文件夹'
+  const topId = insertFolderRow(db, top, input.folderId)
+  await walk(input.dirPath, topId)
+  return ok({ added, skipped, failed })
 }
 
 /** A2 文件夹批量导入：返回成功/跳过/失败计数。 */

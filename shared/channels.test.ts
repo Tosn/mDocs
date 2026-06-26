@@ -11,9 +11,9 @@ function flatten(obj: Record<string, unknown>): string[] {
 }
 
 describe('channels', () => {
-  it('exposes exactly the 7 IPC domains', () => {
+  it('exposes exactly the 8 IPC domains', () => {
     expect(Object.keys(CHANNELS).sort()).toEqual(
-      ['chat', 'crawl', 'document', 'folder', 'search', 'settings', 'trash']
+      ['backup', 'chat', 'crawl', 'document', 'folder', 'search', 'settings', 'trash']
     )
   })
 

@@ -11,6 +11,7 @@ import { registerTrashIpc } from './ipc/trash.ipc'
 import { registerCrawlIpc } from './ipc/crawl.ipc'
 import { registerChatIpc } from './ipc/chat.ipc'
 import { registerSettingsIpc } from './ipc/settings.ipc'
+import { registerBackupIpc } from './ipc/backup.ipc'
 import type { AskDeps } from './services/chat.service'
 import { chatStream, embed } from './services/llm/provider'
 import type { EmbedFn } from './services/rag/embedder'
@@ -37,6 +38,7 @@ export function bootstrap(ipcMain: IpcLike, db: Database.Database, ctx: Bootstra
   registerCrawlIpc(ipcMain, db, { storageDir: ctx.storageDir, embed: ctx.embed })
   registerChatIpc(ipcMain, { db, makeAskDeps: ctx.makeAskDeps })
   registerSettingsIpc(ipcMain, db, { embed: ctx.embed })
+  registerBackupIpc(ipcMain, db, { storageDir: ctx.storageDir, embed: ctx.embed })
 
   // spec B3：启动时彻底删除过期回收站项。
   purgeExpiredTrash(db)

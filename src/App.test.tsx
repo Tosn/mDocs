@@ -71,6 +71,7 @@ beforeEach(() => {
         data: [{ id: 'd1', name: 'note', type: 'md', folderId: 'f' }]
       })),
       move: vi.fn(async () => ({ ok: true, data: mdDoc })),
+      uploadFolder: vi.fn(async () => ({ ok: true, data: { added: 0, skipped: 0, failed: 0 } })),
       get: vi.fn(async () => ({ ok: true, data: mdDoc })),
       getFileUrl: vi.fn(async () => ({ ok: true, data: 'file:///x.pdf' })),
       updateContent,
@@ -109,6 +110,10 @@ beforeEach(() => {
       getPrivacyNotice: vi.fn(async () => ({ ok: true, data: { text: 'privacy' } }))
     },
     search: { keyword: vi.fn() },
+    backup: {
+      export: vi.fn(async () => ({ ok: true, data: { canceled: true } })),
+      import: vi.fn(async () => ({ ok: true, data: { folders: 0, documents: 0 } }))
+    },
     trash: {
       list: vi.fn(async () => ({
         ok: true,
@@ -277,7 +282,8 @@ describe('App', () => {
     await waitFor(() => treeText('F'))
     fireEvent.contextMenu(treeText('F').closest('.tree-row') as HTMLElement)
     expect(screen.getByText('在此新建文档')).toBeTruthy()
-    expect(screen.getByText('上传到此')).toBeTruthy()
+    expect(screen.getByText('上传文件到此')).toBeTruthy()
+    expect(screen.getByText('上传文件夹到此')).toBeTruthy()
     expect(screen.getByText('添加网页到此')).toBeTruthy()
   })
 
