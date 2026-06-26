@@ -169,9 +169,7 @@ export function FileTree({
             if (id) onMoveDoc(id, node.folderId)
           }}
         >
-          <span className={`tree-arrow${hasChildren ? '' : ' empty'}`}>
-            {hasChildren ? (isOpen ? '▾' : '▸') : ''}
-          </span>
+          <span className="tree-arrow">{hasChildren ? (isOpen ? '▾' : '▸') : ''}</span>
           <span className="tree-icon folder" aria-hidden="true" />
           {editing === editKey ? (
             nameInput('folder', node.folderId)
@@ -215,7 +213,7 @@ export function FileTree({
             onContextMenu?.({ kind: 'doc', id: node.id, name: node.name }, e.clientX, e.clientY)
           }}
         >
-          <span className="tree-arrow empty" />
+          <span className="tree-arrow" />
           <span className="tree-icon doc" data-type={node.docType} aria-hidden="true" />
           {editing === editKey ? (
             nameInput('doc', node.id)
