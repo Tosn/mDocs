@@ -68,22 +68,39 @@ export function htmlToMarkdown(
   html: string,
   url: string
 ): Result<{ title: string; markdown: string }> {
-  let doc: Document_ | null = null
+  let contentHtml = ''
+  let title = url
+  let bodyHtml = ''
   try {
     const dom = new JSDOM(promoteTableHeaders(html), { url })
-    const reader = new Readability(dom.window.document)
-    doc = reader.parse() as Document_ | null
+    // 移除非正文噪声（图标 SVG / 脚本 / 样式），减少飞书等富文档转出的杂质。
+    dom.window.document
+      .querySelectorAll('svg, script, style, noscript')
+      .forEach((el: { remove: () => void }) => el.remove())
+    // Readability 会改写 DOM，先存一份 body 作为兜底（飞书等 SPA 的编辑器 DOM
+    // 常被 Readability 误判为噪声整段丢弃，此时回退到 body 至少保住正文）。
+    bodyHtml = (dom.window.document.body as { innerHTML?: string } | null)?.innerHTML ?? ''
+    title = dom.window.document.title || url
+    const doc = new Readability(dom.window.document).parse() as Document_ | null
+    if (doc?.content) {
+      contentHtml = doc.content
+      title = (doc.title || title).trim()
+    }
   } catch (e) {
     return err('E_PARSE_WEB', `网页解析失败：${(e as Error).message}`)
   }
-  if (!doc || !doc.content) return err('E_EMPTY', '未能从网页抽取正文')
 
   const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' })
   td.use(gfm) // 表格 → GFM 管道表格，并支持删除线/任务列表
-  const markdown = td.turndown(doc.content).trim()
+  let markdown = contentHtml ? td.turndown(contentHtml).trim() : ''
+  // Readability 抽取为空/过短：回退到整页 body（噪声更多，但不至于整段丢内容）。
+  if (markdown.length < 50 && bodyHtml) {
+    const fallback = td.turndown(bodyHtml).trim()
+    if (fallback.length > markdown.length) markdown = fallback
+  }
   if (!markdown) return err('E_EMPTY', '网页正文为空')
 
-  return ok({ title: (doc.title || url).trim(), markdown })
+  return ok({ title: title.trim(), markdown })
 }
 
 // Readability.parse() 的最小返回形状。
@@ -121,11 +138,134 @@ export async function fetchHtml(url: string): Promise<Result<string>> {
 }
 
 /** 把网页 md 入库为 web 文档（保留原链接）。供 fromUrl 与登录爬取复用。 */
+// ── 飞书文档专用抽取（其结构是 .docx-*-block + .ace-line，Readability 抽不好） ──
+
+/** 飞书/Lark 文档链接判定。 */
+export function isFeishuUrl(url: string): boolean {
+  try {
+    const h = new URL(url).hostname
+    return /(^|\.)feishu\.(cn|net)$/.test(h) || /(^|\.)larksuite\.com$/.test(h)
+  } catch {
+    return false
+  }
+}
+
+const ZERO_WIDTH = /[​‌‍﻿]/g
+
+interface FNode {
+  getAttribute(n: string): string | null
+  textContent: string | null
+  querySelectorAll(s: string): ArrayLike<FNode>
+  closest(s: string): FNode | null
+}
+
+/** 取一个块内的可见文本：拼接 .ace-line，去零宽字符。 */
+function aceText(el: FNode): string {
+  const lines: string[] = []
+  for (const line of Array.from(el.querySelectorAll('.ace-line'))) {
+    lines.push((line.textContent ?? '').replace(ZERO_WIDTH, '').trim())
+  }
+  return lines.join('\n').trim()
+}
+
+/** 飞书表格 → GFM 管道表格（表头表与表体表被拆成两个 <table>，DOM 顺序即「表头+数据」）。 */
+function feishuTable(tableBlock: FNode): string {
+  const rows: string[][] = []
+  for (const tr of Array.from(tableBlock.querySelectorAll('tr'))) {
+    const cells = Array.from(tr.querySelectorAll('td')).map((td) =>
+      aceText(td).replace(/\s*\n+\s*/g, ' ').replace(/\|/g, '\\|').trim()
+    )
+    if (cells.length) rows.push(cells)
+  }
+  if (rows.length === 0) return ''
+  const cols = Math.max(...rows.map((r) => r.length))
+  const pad = (r: string[]) => {
+    const c = r.slice()
+    while (c.length < cols) c.push('')
+    return c
+  }
+  const line = (r: string[]) => `| ${r.join(' | ')} |`
+  return [
+    line(pad(rows[0])),
+    line(new Array(cols).fill('---')),
+    ...rows.slice(1).map((r) => line(pad(r)))
+  ].join('\n')
+}
+
+/** 飞书文档 HTML → Markdown：按块类型解析标题/正文/表格/列表等。 */
+export function feishuToMarkdown(
+  html: string,
+  url: string
+): Result<{ title: string; markdown: string }> {
+  let doc: { querySelectorAll(s: string): ArrayLike<FNode>; title?: string }
+  try {
+    doc = new JSDOM(html, { url }).window.document as never
+  } catch (e) {
+    return err('E_PARSE_WEB', `网页解析失败：${(e as Error).message}`)
+  }
+
+  // 顶层内容块：排除表格单元格内部的块（表格整体单独处理）。
+  const blocks = Array.from(doc.querySelectorAll('.block[data-block-type]')).filter(
+    (b) => !b.closest('[data-block-type="table_cell"]')
+  )
+
+  const out: string[] = []
+  for (const b of blocks) {
+    const type = b.getAttribute('data-block-type')
+    if (type === 'heading1') out.push(`# ${aceText(b)}`)
+    else if (type === 'heading2') out.push(`## ${aceText(b)}`)
+    else if (type === 'heading3') out.push(`### ${aceText(b)}`)
+    else if (type === 'heading4' || type === 'heading5' || type === 'heading6')
+      out.push(`#### ${aceText(b)}`)
+    else if (type === 'table') {
+      const t = feishuTable(b)
+      if (t) out.push(t)
+    } else if (type === 'ordered') {
+      const t = aceText(b)
+      if (t) out.push(`1. ${t}`)
+    } else if (type === 'bullet') {
+      const t = aceText(b)
+      if (t) out.push(`- ${t}`)
+    } else if (type === 'code') {
+      const t = aceText(b)
+      if (t) out.push('```\n' + t + '\n```')
+    } else if (type === 'quote_container' || type === 'quote') {
+      const t = aceText(b)
+      if (t) out.push(t.split('\n').map((l) => `> ${l}`).join('\n'))
+    } else {
+      const t = aceText(b) // text / 其它块：取文本
+      if (t) out.push(t)
+    }
+  }
+
+  // 标题优先用 document.title（飞书的文档名），其首个 heading1 多为章节标题。
+  let title = (doc.title ?? '')
+    .replace(/\s*[-|]\s*飞书[\s\S]*$/, '')
+    .replace(/\s*-\s*(Feishu|Lark)[\s\S]*$/i, '')
+    .trim()
+  if (!title) {
+    const h1 = blocks.find((b) => b.getAttribute('data-block-type') === 'heading1')
+    if (h1) title = aceText(h1)
+  }
+  if (!title) title = url
+
+  const markdown = out
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join('\n\n')
+    .trim()
+  if (!markdown) return err('E_EMPTY', '未能从飞书文档抽取正文')
+  return ok({ title, markdown })
+}
+
 export function ingestWebDoc(
   db: Database.Database,
   input: { html: string; url: string; folderId: string | null; storageDir?: string }
 ): Result<Document> {
-  const conv = htmlToMarkdown(input.html, input.url)
+  // 飞书文档走专用抽取，其余站点用通用 Readability+turndown。
+  const conv = isFeishuUrl(input.url)
+    ? feishuToMarkdown(input.html, input.url)
+    : htmlToMarkdown(input.html, input.url)
   if (!isOk(conv)) return err(conv.error.code, conv.error.message)
 
   const md = conv.data.markdown

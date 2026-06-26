@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import type { MessageSource } from '@shared/types'
 
 interface ScopeOption {
@@ -173,7 +174,9 @@ export function ChatPanel({
           <div key={m.id} className={`msg ${m.role}`}>
             {m.role === 'assistant' ? (
               <div className="content markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  {m.content}
+                </ReactMarkdown>
               </div>
             ) : (
               <div className="content">{m.content}</div>

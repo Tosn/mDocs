@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import type { DocType } from '@shared/types'
 
 interface ViewerDoc {
@@ -33,7 +34,9 @@ export function DocViewer({ doc }: { doc: ViewerDoc }) {
   // md / web → 渲染 markdown
   return (
     <div className="doc-viewer markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.contentText}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+        {doc.contentText}
+      </ReactMarkdown>
     </div>
   )
 }

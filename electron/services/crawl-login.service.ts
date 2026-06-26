@@ -54,11 +54,16 @@ const CAPTURE_BUTTON_ID = '__mdocsCaptureBtn__'
 async function defaultCapture(url: string): Promise<CapturedPage | null> {
   const { BrowserWindow } = await import('electron')
   const win = new BrowserWindow({
-    width: 1024,
-    height: 768,
+    width: 1280,
+    height: 900,
     title: '登录后点击「抓取当前页」',
-    webPreferences: { partition: `crawl-${Date.now()}` } // 临时会话，不持久化登录凭据
+    // 固定持久分区：cookie/登录态落盘到 userData，跨爬取与重启保留，登录一次即可。
+    webPreferences: { partition: 'persist:crawl' }
   })
+  // 用标准 Chrome UA：飞书等站点对 Electron UA 会降级渲染（表格只出骨架）。
+  win.webContents.setUserAgent(
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+  )
 
   return new Promise<CapturedPage | null>((resolve) => {
     let settled = false
@@ -73,17 +78,60 @@ async function defaultCapture(url: string): Promise<CapturedPage | null> {
     win.on('closed', () => finish(null))
     win.loadURL(url).catch(() => finish(null))
 
-    // 注入一个悬浮「抓取当前页」按钮；点击后置标记，由轮询取走 HTML。
+    // 注入一个悬浮「抓取当前页」按钮；点击后先自动滚动整篇（触发飞书等虚拟滚动文档
+    // 的全量懒渲染 + 等待表格加载完成），再置标记，由轮询取走完整 HTML。
     const injectButton = () => {
       win.webContents
         .executeJavaScript(
           `(() => {
             if (document.getElementById('${CAPTURE_BUTTON_ID}')) return;
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+            // 选出最可能的滚动容器（飞书的滚动区是内层 div，不是 window）。
+            const findScroller = () => {
+              let best = document.scrollingElement || document.documentElement;
+              let score = best.scrollHeight - best.clientHeight;
+              document.querySelectorAll('div').forEach((el) => {
+                const s = el.scrollHeight - el.clientHeight;
+                if (s <= score) return;
+                const oy = getComputedStyle(el).overflowY;
+                if (oy === 'auto' || oy === 'scroll') { best = el; score = s; }
+              });
+              return best;
+            };
+            // 逐屏增量滚动：每个块进视口才会触发飞书的懒渲染（直接跳到底会略过中间块），
+            // 每步停顿等表格等异步块加载完成；到底且高度稳定后停止，再滚回顶部。
+            const autoScroll = async () => {
+              const sc = findScroller();
+              const step = () => Math.max(200, sc.clientHeight - 120);
+              let last = -1, stable = 0;
+              for (let i = 0; i < 1500; i++) {
+                sc.scrollTop = Math.min(sc.scrollTop + step(), sc.scrollHeight);
+                await sleep(450);
+                const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4;
+                const h = sc.scrollHeight;
+                if (atBottom) {
+                  if (h === last) { if (++stable >= 3) break; } else { stable = 0; last = h; }
+                }
+              }
+              sc.scrollTop = 0;
+              await sleep(600);
+            };
             const b = document.createElement('button');
             b.id = '${CAPTURE_BUTTON_ID}';
             b.textContent = '抓取当前页';
             b.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:10px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
-            b.onclick = () => { window['${CAPTURE_FLAG}'] = true; b.disabled = true; b.textContent = '已抓取'; };
+            b.onclick = async () => {
+              b.disabled = true;
+              // 仅飞书/Lark 需要滚动加载（虚拟滚动+懒渲染）；其他站点点击即抓，保持原行为。
+              const host = location.hostname;
+              const needScroll = /feishu\\.(cn|net)$/.test(host) || /larksuite\\.com$/.test(host);
+              if (needScroll) {
+                b.textContent = '抓取中…(滚动加载，请稍候)';
+                try { await autoScroll(); } catch (e) {}
+              }
+              window['${CAPTURE_FLAG}'] = true;
+              b.textContent = '已抓取';
+            };
             document.body.appendChild(b);
           })();`
         )

@@ -11,6 +11,14 @@ describe('DocViewer', () => {
     expect(screen.getByText('world')).toBeTruthy()
   })
 
+  it('renders raw HTML tables embedded in markdown (rehype-raw)', () => {
+    const md = '前言\n\n<table><tr><td>A</td><td>B</td></tr></table>'
+    render(<DocViewer doc={{ type: 'md', name: 'a', contentText: md, fileUrl: null }} />)
+    expect(screen.getByText('A')).toBeTruthy()
+    expect(screen.getByText('B')).toBeTruthy()
+    expect(document.querySelector('table')).not.toBeNull()
+  })
+
   it('renders plain txt content', () => {
     render(<DocViewer doc={{ type: 'txt', name: 'a', contentText: 'plain text here', fileUrl: null }} />)
     expect(screen.getByText('plain text here')).toBeTruthy()

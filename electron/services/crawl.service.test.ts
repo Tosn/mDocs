@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type Database from 'better-sqlite3'
 import { openDb } from '../db/index'
-import { htmlToMarkdown, fromUrl, promoteTableHeaders, ingestWebDoc } from './crawl.service'
+import {
+  htmlToMarkdown,
+  fromUrl,
+  promoteTableHeaders,
+  ingestWebDoc,
+  isFeishuUrl,
+  feishuToMarkdown
+} from './crawl.service'
 import { isOk } from '@shared/types'
 
 const sampleHtml = `<html><head><title>My Article</title></head><body>
@@ -59,9 +66,51 @@ describe('crawl.service', () => {
     expect(promoteTableHeaders(withTh)).not.toContain('<th>1</th>')
   })
 
+  it('htmlToMarkdown falls back to body content for editor-style pages', () => {
+    // 编辑器/SPA 式 DOM（无 article/p 结构），Readability 易整段抽空 → 回退 body 保住正文。
+    const spa = `<html><body><div id="app"><div>${'飞书文档正文片段。'.repeat(30)}</div></div></body></html>`
+    const r = htmlToMarkdown(spa, 'https://x.feishu.cn/docx/abc')
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.data.markdown).toContain('飞书文档正文片段')
+  })
+
   it('htmlToMarkdown errors on empty content', () => {
     const r = htmlToMarkdown('<html><body></body></html>', 'https://x.test')
     expect(r.ok).toBe(false)
+  })
+
+  it('isFeishuUrl detects feishu/lark doc links', () => {
+    expect(isFeishuUrl('https://webeye.feishu.cn/docx/UbdQ')).toBe(true)
+    expect(isFeishuUrl('https://x.larksuite.com/docx/abc')).toBe(true)
+    expect(isFeishuUrl('https://zhuanlan.zhihu.com/p/1')).toBe(false)
+    expect(isFeishuUrl('not a url')).toBe(false)
+  })
+
+  it('feishuToMarkdown parses blocks into headings/text/GFM tables', () => {
+    const feishuHtml = `<html><head><title>埋点定义表 - 飞书云文档</title></head><body>
+      <div class="page-block-children">
+        <div class="block docx-heading1-block" data-block-type="heading1"><div class="ace-line"><span data-string="true">一.初始化链路</span><span data-enter="true">​</span></div></div>
+        <div class="block docx-text-block" data-block-type="text"><div class="ace-line"><span data-string="true">具体字段：</span></div></div>
+        <div class="block docx-table-block" data-block-type="table">
+          <table class="sticky-row-wrapper"><tr class="first-row">
+            <td data-block-type="table_cell"><div class="block docx-text-block" data-block-type="text"><div class="ace-line"><span data-string="true">指标名称</span></div></div></td>
+            <td data-block-type="table_cell"><div class="ace-line"><span data-string="true">计算方式</span></div></td>
+          </tr></table>
+          <table class="table header-row"><tbody><tr>
+            <td data-block-type="table_cell"><div class="ace-line"><span data-string="true">初始化次数</span></div></td>
+            <td data-block-type="table_cell"><div class="ace-line"><span data-string="true">init_start 数</span></div></td>
+          </tr></tbody></table>
+        </div>
+      </div></body></html>`
+    const r = feishuToMarkdown(feishuHtml, 'https://x.feishu.cn/docx/abc')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.title).toBe('埋点定义表')
+      expect(r.data.markdown).toContain('# 一.初始化链路')
+      expect(r.data.markdown).toContain('具体字段：')
+      expect(r.data.markdown).toContain('| 指标名称 | 计算方式 |')
+      expect(r.data.markdown).toContain('| 初始化次数 | init_start 数 |')
+    }
   })
 
   it('fromUrl fetches, converts and ingests a web document', async () => {
