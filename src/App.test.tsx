@@ -65,10 +65,12 @@ beforeEach(() => {
       delete: vi.fn(async () => ({ ok: true }))
     },
     document: {
-      listByFolder: vi.fn(async (fid: string | null) => ({
+      listByFolder: vi.fn(async () => ({ ok: true, data: [] })),
+      listAll: vi.fn(async () => ({
         ok: true,
-        data: fid === 'f' ? [{ id: 'd1', name: 'note', type: 'md' }] : []
+        data: [{ id: 'd1', name: 'note', type: 'md', folderId: 'f' }]
       })),
+      move: vi.fn(async () => ({ ok: true, data: mdDoc })),
       get: vi.fn(async () => ({ ok: true, data: mdDoc })),
       getFileUrl: vi.fn(async () => ({ ok: true, data: 'file:///x.pdf' })),
       updateContent,
@@ -179,21 +181,27 @@ describe('App', () => {
     expect(screen.getByText('gone.md')).toBeTruthy()
   })
 
-  it('lists documents of a selected folder and previews one', async () => {
+  it('opens a document from the tree and previews it', async () => {
     render(<App />)
     await waitFor(() => treeText('F'))
-    fireEvent.click(treeText('F'))
-    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
-    fireEvent.click(within(screen.getByTestId('pane-main')).getByText('note'))
+    fireEvent.click(treeText('F')) // 展开文件夹
+    await waitFor(() => treeText('note.md'))
+    fireEvent.click(treeText('note.md')) // 打开文档
     await waitFor(() => expect(screen.getByText('hello body')).toBeTruthy())
+  })
+
+  it('shows a 默认 node for unfiled documents', async () => {
+    render(<App />)
+    await waitFor(() => treeText('默认'))
+    expect(treeText('默认')).toBeTruthy()
   })
 
   it('edits a document and saves via updateContent', async () => {
     render(<App />)
     await waitFor(() => treeText('F'))
     fireEvent.click(treeText('F'))
-    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
-    fireEvent.click(within(screen.getByTestId('pane-main')).getByText('note'))
+    await waitFor(() => treeText('note.md'))
+    fireEvent.click(treeText('note.md'))
     await waitFor(() => screen.getByText('编辑'))
     fireEvent.click(screen.getByText('编辑'))
     const box = within(screen.getByTestId('pane-main')).getByRole('textbox') as HTMLTextAreaElement
@@ -203,49 +211,40 @@ describe('App', () => {
     await waitFor(() => expect(updateContent).toHaveBeenCalledWith('d1', 'new content'))
   })
 
-  it('creates a folder via the toolbar', async () => {
+  it('creates a folder via the + menu', async () => {
     render(<App />)
-    await waitFor(() => screen.getByText('新建文件夹'))
-    fireEvent.click(screen.getByText('新建文件夹'))
+    await waitFor(() => screen.getByText('＋ 新建'))
+    fireEvent.click(screen.getByText('＋ 新建'))
+    fireEvent.click(screen.getByText('新建文件夹')) // 菜单项
     const dialog = await waitFor(() => screen.getByTestId('prompt-dialog'))
     fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'NewFolder' } })
     fireEvent.click(within(dialog).getByText('确定'))
     await waitFor(() => expect(folderCreate).toHaveBeenCalledWith({ name: 'NewFolder', parentId: null }))
   })
 
-  it('returns to root via the 全部文档 entry', async () => {
+  it('renames a document inline via Enter on the selected row', async () => {
     render(<App />)
     await waitFor(() => treeText('F'))
     fireEvent.click(treeText('F'))
-    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
-    fireEvent.click(treeText('全部文档'))
-    await waitFor(() =>
-      expect(within(screen.getByTestId('pane-main')).queryByText('note')).toBeNull()
-    )
-    const calls = (window as unknown as { api: { document: { listByFolder: { mock: { calls: unknown[][] } } } } })
-      .api.document.listByFolder.mock.calls
-    expect(calls[calls.length - 1][0]).toBeNull()
-  })
-
-  it('renames a document from the list', async () => {
-    render(<App />)
-    await waitFor(() => treeText('F'))
-    fireEvent.click(treeText('F'))
-    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
-    fireEvent.click(screen.getByLabelText('重命名 note'))
-    const dialog = await waitFor(() => screen.getByTestId('prompt-dialog'))
-    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'renamed' } })
-    fireEvent.click(within(dialog).getByText('确定'))
+    await waitFor(() => treeText('note.md'))
+    fireEvent.keyDown(treeText('note.md').closest('.tree-row') as HTMLElement, { key: 'Enter' })
+    const input = (await waitFor(() =>
+      within(screen.getByTestId('pane-tree')).getByDisplayValue('note.md')
+    )) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(docRename).toHaveBeenCalledWith('d1', 'renamed'))
   })
 
-  it('deletes a document from the list after confirmation', async () => {
+  it('deletes a document via its right-click menu after confirmation', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<App />)
     await waitFor(() => treeText('F'))
     fireEvent.click(treeText('F'))
-    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
-    fireEvent.click(screen.getByLabelText('删除 note'))
+    await waitFor(() => treeText('note.md'))
+    fireEvent.contextMenu(treeText('note.md').closest('.tree-row') as HTMLElement)
+    const menu = document.querySelector('.context-menu') as HTMLElement
+    fireEvent.click(within(menu).getByText('删除')) // 菜单项
     await waitFor(() => expect(docDelete).toHaveBeenCalledWith('d1'))
   })
 
@@ -253,9 +252,9 @@ describe('App', () => {
     createDocMock.mockResolvedValueOnce({ ok: false, error: { code: 'E_DUPLICATE', message: 'dup' } })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<App />)
-    const main = screen.getByTestId('pane-main')
-    await waitFor(() => within(main).getByText('新建'))
-    fireEvent.click(within(main).getByText('新建'))
+    await waitFor(() => screen.getByText('＋ 新建'))
+    fireEvent.click(screen.getByText('＋ 新建'))
+    fireEvent.click(screen.getByText('新建文档')) // 菜单项
     const dialog = await waitFor(() => screen.getByTestId('prompt-dialog'))
     fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Doc' } })
     fireEvent.click(within(dialog).getByText('确定'))
@@ -265,11 +264,21 @@ describe('App', () => {
     )
   })
 
-  it('uploads picked files', async () => {
+  it('uploads picked files via the + menu', async () => {
     render(<App />)
-    await waitFor(() => screen.getByText('上传'))
-    fireEvent.click(screen.getByText('上传'))
+    await waitFor(() => screen.getByText('＋ 新建'))
+    fireEvent.click(screen.getByText('＋ 新建'))
+    fireEvent.click(screen.getByText('上传文件')) // 菜单项
     await waitFor(() => expect(upload).toHaveBeenCalledWith({ paths: ['/a/b.md'], folderId: null }))
+  })
+
+  it('opens a folder context menu with create actions', async () => {
+    render(<App />)
+    await waitFor(() => treeText('F'))
+    fireEvent.contextMenu(treeText('F').closest('.tree-row') as HTMLElement)
+    expect(screen.getByText('在此新建文档')).toBeTruthy()
+    expect(screen.getByText('上传到此')).toBeTruthy()
+    expect(screen.getByText('添加网页到此')).toBeTruthy()
   })
 
   it('saves an API key for a selected model in settings', async () => {
@@ -301,11 +310,9 @@ describe('App', () => {
     expect(within(chat).queryByText(/当前模型/)).toBeNull()
   })
 
-  it('offers the opened folder documents as @scope options', async () => {
+  it('offers all documents as @scope options', async () => {
     render(<App />)
-    await waitFor(() => treeText('F'))
-    fireEvent.click(treeText('F'))
-    await waitFor(() => within(screen.getByTestId('pane-main')).getByText('note'))
+    await waitFor(() => treeText('默认'))
     const chat = screen.getByTestId('pane-chat')
     fireEvent.change(within(chat).getByPlaceholderText(/提问/), { target: { value: '@no' } })
     await waitFor(() => expect(within(chat).getByLabelText('note')).toBeTruthy())

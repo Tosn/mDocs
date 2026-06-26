@@ -55,6 +55,22 @@ describe('document.service', () => {
     if (isOk(r)) expect(r.data.name).toBe('dup (1)')
   })
 
+  it('createDoc infers type from the name extension', () => {
+    const txt = createDoc(db, { name: 'note.txt', folderId: null, contentText: 'x' })
+    if (isOk(txt)) expect(txt.data.type).toBe('txt')
+    const md = createDoc(db, { name: 'plain', folderId: null, contentText: 'x' })
+    if (isOk(md)) expect(md.data.type).toBe('md') // 无扩展名默认 md
+  })
+
+  it('renameDoc updates type when the new name has an extension, keeps it otherwise', () => {
+    const d = createDoc(db, { name: 'a', folderId: null, contentText: 'x' })
+    if (!isOk(d)) throw new Error('setup')
+    const r1 = renameDoc(db, d.data.id, 'a.txt')
+    if (isOk(r1)) expect(r1.data.type).toBe('txt')
+    const r2 = renameDoc(db, d.data.id, 'a-no-ext')
+    if (isOk(r2)) expect(r2.data.type).toBe('txt') // 无扩展名保持原类型
+  })
+
   it('createDoc inserts with content hash and md type', () => {
     const r = createDoc(db, { name: 'note', folderId: null, contentText: 'hello' })
     expect(isOk(r)).toBe(true)

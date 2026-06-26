@@ -272,6 +272,43 @@ textarea::placeholder {
   flex: 1;
 }
 
+/* 左栏紧凑头部（工具式） */
+.tree-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tree-header .tree-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.tree-header .header-btn {
+  flex: none;
+  min-height: 28px;
+  padding: 3px 10px;
+  font-size: 12.5px;
+}
+
+.tree-header .header-btn.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-fg);
+}
+.tree-header .header-btn.primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.context-menu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
+
 /* ============================================================
    Folder tree
    ============================================================ */
@@ -340,6 +377,119 @@ textarea::placeholder {
   background: var(--primary-soft);
 }
 
+/* ============================================================
+   Unified file tree (VSCode-like)
+   ============================================================ */
+.file-tree,
+.file-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.file-tree li {
+  margin: 0;
+  padding: 0;
+}
+.file-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* 所有树行固定等高（空文件夹 / 文件 / 含内容文件夹一致），裁剪溢出避免被撑高。 */
+.file-tree .tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  overflow: hidden;
+  transition: background var(--t);
+}
+.file-tree .tree-row:hover {
+  background: var(--surface-2);
+}
+.file-tree .tree-row.active {
+  background: var(--primary-soft);
+}
+
+.file-tree .tree-arrow {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--fg-muted);
+}
+
+.file-tree .tree-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  background: var(--fg-muted);
+}
+.file-tree .tree-icon.folder {
+  -webkit-mask: var(--icon-folder) center / contain no-repeat;
+  mask: var(--icon-folder) center / contain no-repeat;
+}
+.file-tree .tree-icon.doc {
+  -webkit-mask: var(--icon-doc) center / contain no-repeat;
+  mask: var(--icon-doc) center / contain no-repeat;
+}
+/* 按类型区分文件图标颜色（名称已带 .md/.txt/.pdf 后缀） */
+.file-tree .tree-icon.doc[data-type='md'] {
+  background: var(--primary);
+}
+.file-tree .tree-icon.doc[data-type='pdf'] {
+  background: var(--danger);
+}
+.file-tree .tree-icon.doc[data-type='txt'] {
+  background: var(--fg-subtle);
+}
+
+.file-tree .tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 0;
+}
+.file-tree .tree-count {
+  flex: none;
+  font-size: 11px;
+  color: var(--fg-subtle);
+}
+
+.file-tree .tree-row.drop-target {
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+  background: var(--primary-soft);
+}
+
+.file-tree .tree-edit {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 4px;
+  font-size: 13px;
+}
+
+.main-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--fg-subtle);
+  font-size: 14px;
+}
+
 /* 右键“移动到”菜单 */
 .context-menu-backdrop {
   position: fixed;
@@ -381,6 +531,13 @@ textarea::placeholder {
 
 .context-menu button:hover {
   background: var(--surface-2);
+}
+
+.context-menu button.danger {
+  color: var(--danger);
+}
+.context-menu button.danger:hover {
+  background: var(--danger-bg);
 }
 
 .folder-tree .tree-name::before {

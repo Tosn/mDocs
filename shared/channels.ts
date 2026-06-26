@@ -9,6 +9,7 @@ export const CHANNELS = {
   },
   document: {
     listByFolder: 'document:listByFolder',
+    listAll: 'document:listAll',
     get: 'document:get',
     getFileUrl: 'document:getFileUrl',
     pickPaths: 'document:pickPaths',

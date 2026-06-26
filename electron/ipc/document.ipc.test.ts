@@ -32,6 +32,18 @@ describe('document.ipc', () => {
     for (const c of Object.values(CHANNELS.document)) expect(ipc.has(c)).toBe(true)
   })
 
+  it('listAll returns every document with its folderId', async () => {
+    await ipc.invoke(CHANNELS.document.createDoc, { name: 'a', folderId: null, contentText: 'x' })
+    await ipc.invoke(CHANNELS.document.createDoc, { name: 'b', folderId: null, contentText: 'y' })
+    const all = (await ipc.invoke(CHANNELS.document.listAll)) as {
+      ok: boolean
+      data: { id: string; name: string; type: string; folderId: string | null }[]
+    }
+    expect(all.ok).toBe(true)
+    expect(all.data.length).toBe(2)
+    expect(all.data[0]).toHaveProperty('folderId')
+  })
+
   it('createDoc then listByFolder returns the document', async () => {
     const created = (await ipc.invoke(CHANNELS.document.createDoc, {
       name: 'n',

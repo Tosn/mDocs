@@ -67,6 +67,16 @@ export function registerDocumentIpc(
     return ok(rows.map(rowToDoc))
   })
 
+  // 统一树需要：列出全部未删除文档（轻量字段：id/name/type/folderId）。
+  ipcMain.handle(CHANNELS.document.listAll, () => {
+    const rows = db
+      .prepare(
+        `SELECT id, name, type, folder_id FROM documents WHERE deleted_at IS NULL ORDER BY name`
+      )
+      .all() as { id: string; name: string; type: Document['type']; folder_id: string | null }[]
+    return ok(rows.map((r) => ({ id: r.id, name: r.name, type: r.type, folderId: r.folder_id })))
+  })
+
   ipcMain.handle(CHANNELS.document.get, (_e, id: string) => {
     const row = db.prepare(`SELECT * FROM documents WHERE id = ? AND deleted_at IS NULL`).get(id) as
       | DocRow

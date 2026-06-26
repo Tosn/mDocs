@@ -11,7 +11,8 @@ import { useTreeStore } from './stores/tree.store'
 import { useChatStore } from './stores/chat.store'
 import { useEditorStore } from './stores/editor.store'
 import { useSettingsStore } from './stores/settings.store'
-import { FolderTree } from './components/tree/FolderTree'
+import { FileTree, type FileNode, type CtxTarget } from './components/tree/FileTree'
+import { ContextMenu, type MenuItem } from './components/common/ContextMenu'
 import { DocViewer } from './components/viewer/DocViewer'
 import { DocEditor } from './components/editor/DocEditor'
 import { SearchPanel } from './components/search/SearchPanel'
@@ -25,7 +26,7 @@ import { trashApi } from './api/trash.api'
 type Turn =
   | { kind: 'user'; id: string; content: string }
   | { kind: 'assistant'; id: string; content?: string }
-type DocListItem = { id: string; name: string; type: DocType }
+type DocListItem = { id: string; name: string; type: DocType; folderId: string | null }
 type SessionItem = { id: string; title: string }
 
 function flattenFolders(nodes: TreeNode[]): TreeNode[] {
@@ -52,9 +53,11 @@ export function App() {
   const [fileUrl, setFileUrl] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [showWeb, setShowWeb] = useState(false)
+  const [webTarget, setWebTarget] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showTrash, setShowTrash] = useState(false)
-  const [moveMenu, setMoveMenu] = useState<{ docId: string; x: number; y: number } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
+  const [editReq, setEditReq] = useState<{ key: string; name: string } | null>(null)
   const [trashItems, setTrashItems] = useState<
     { id: string; itemType: 'folder' | 'document'; name: string; deletedAt: number; purgeAfter: number }[]
   >([])
@@ -82,8 +85,13 @@ export function App() {
   const embedMaskedKey = useSettingsStore((s) => s.embedMaskedKey)
 
   const refreshTree = () => folderApi.tree().then((r) => isOk(r) && setTree(r.data))
-  const loadDocs = (fid: string | null) =>
-    documentApi.listByFolder(fid).then((r) => isOk(r) && setDocs(r.data as DocListItem[]))
+  const loadAllDocs = () =>
+    documentApi.listAll().then((r) => isOk(r) && setDocs(r.data as DocListItem[]))
+  // 文件树 = 文件夹 + 全部文档；任何增删改移后统一刷新两者。
+  const refreshAll = () => {
+    void refreshTree()
+    void loadAllDocs()
+  }
   const loadSessions = () =>
     chatApi.listSessions().then((r) => {
       if (!isOk(r)) return
@@ -93,7 +101,7 @@ export function App() {
 
   useEffect(() => {
     void refreshTree()
-    void loadDocs(null)
+    void loadAllDocs()
     void settingsApi.getPrivacyNotice().then((r) => isOk(r) && setPrivacy(r.data.text))
     void settingsApi.listModels().then((r) => isOk(r) && useSettingsStore.getState().setModels(r.data))
     void settingsApi.getActiveModel().then((r) => {
@@ -143,10 +151,9 @@ export function App() {
     }
   }, [])
 
+  // 选中文件夹只更新「新建/上传的目标」，不再切换主区列表（文件已在树里）。
   const selectFolder = (id: string | null) => {
     setFolderId(id)
-    setOpenDoc(null)
-    void loadDocs(id)
   }
 
   const openDocument = async (id: string) => {
@@ -176,38 +183,40 @@ export function App() {
   const askName = (title: string, defaultValue = '') =>
     new Promise<string | null>((resolve) => setNamePrompt({ title, defaultValue, resolve }))
 
-  const createNew = async () => {
+  const createNew = async (target: string | null = folderId) => {
     const name = (await askName('新文档名称'))?.trim()
     if (!name) return
-    let r = await documentApi.createDoc({ name, folderId, contentText: '' })
+    let r = await documentApi.createDoc({ name, folderId: target, contentText: '' })
     if (!isOk(r) && r.error.code === 'E_DUPLICATE') {
-      const s = await documentApi.suggestName({ name, folderId })
+      const s = await documentApi.suggestName({ name, folderId: target })
       if (!isOk(s)) return
       if (!window.confirm(`已存在文档「${name}」，是否改用「${s.data}」？`)) return
-      r = await documentApi.createDoc({ name: s.data, folderId, contentText: '' })
+      r = await documentApi.createDoc({ name: s.data, folderId: target, contentText: '' })
     }
-    if (isOk(r)) void loadDocs(folderId)
+    if (isOk(r)) refreshAll()
   }
 
-  const createFolder = async () => {
+  const createFolder = async (parent: string | null = folderId) => {
     const name = (await askName('新文件夹名称'))?.trim()
     if (!name) return
-    const r = await folderApi.create({ name, parentId: folderId })
-    if (isOk(r)) void refreshTree()
+    const r = await folderApi.create({ name, parentId: parent })
+    if (isOk(r)) refreshAll()
   }
 
-  const renameFolder = async (id: string, currentName: string) => {
-    const name = (await askName('新名称', currentName))?.trim()
-    if (!name) return
+  // 内联改名：FileTree 已收集好新名称，这里直接落库。
+  const renameFolder = async (id: string, name: string) => {
     const r = await folderApi.rename(id, name)
-    if (isOk(r)) void refreshTree()
+    if (isOk(r)) refreshAll()
   }
 
-  const renameDoc = async (id: string, currentName: string) => {
-    const name = (await askName('新名称', currentName))?.trim()
-    if (!name) return
+  const renameDoc = async (id: string, name: string) => {
     const r = await documentApi.rename(id, name)
-    if (isOk(r)) void loadDocs(folderId)
+    if (isOk(r)) refreshAll()
+  }
+
+  const deleteFolder = async (id: string) => {
+    const r = await folderApi.delete(id)
+    if (isOk(r)) refreshAll()
   }
 
   const deleteDoc = async (id: string, name: string) => {
@@ -218,24 +227,68 @@ export function App() {
         setOpenDoc(null)
         useEditorStore.getState().close()
       }
-      void loadDocs(folderId)
+      refreshAll()
     }
   }
 
   const moveDocTo = async (docId: string, targetFolderId: string | null) => {
     const r = await documentApi.move(docId, targetFolderId)
-    if (!isOk(r)) return
-    void refreshTree() // 计数变化
-    void loadDocs(folderId)
-    setMoveMenu(null)
+    if (isOk(r)) refreshAll()
   }
 
-  const uploadFiles = async () => {
+  const uploadFiles = async (target: string | null = folderId) => {
     const picked = await documentApi.pickPaths({ directory: false })
     if (!isOk(picked) || picked.data.length === 0) return
-    const r = await documentApi.upload({ paths: picked.data, folderId })
-    if (isOk(r)) void loadDocs(folderId)
+    const r = await documentApi.upload({ paths: picked.data, folderId: target })
+    if (isOk(r)) refreshAll()
   }
+
+  const addWeb = (target: string | null = folderId) => {
+    setWebTarget(target)
+    setShowWeb(true)
+  }
+
+  const confirmDeleteFolder = (id: string, name: string) => {
+    if (window.confirm(`确认删除「${name}」及其全部内容？删除后可在回收站保留 7 天。`)) {
+      void deleteFolder(id)
+    }
+  }
+
+  // 右键菜单：文件夹/默认（根）→ 新建/上传/网页等；文件 → 打开/重命名/删除。
+  const openContextMenu = (target: CtxTarget, x: number, y: number) => {
+    const items: MenuItem[] = []
+    if (target.kind === 'doc') {
+      items.push(
+        { label: '打开', onClick: () => void openDocument(target.id) },
+        { label: '重命名', onClick: () => setEditReq({ key: `d:${target.id}`, name: target.name }) },
+        'separator',
+        { label: '删除', danger: true, onClick: () => void deleteDoc(target.id, target.name) }
+      )
+    } else if (target.isDefault) {
+      items.push(
+        { label: '新建文档', onClick: () => void createNew(null) },
+        { label: '上传文件', onClick: () => void uploadFiles(null) },
+        { label: '添加网页', onClick: () => addWeb(null) },
+        'separator',
+        { label: '新建文件夹', onClick: () => void createFolder(null) }
+      )
+    } else {
+      const fid = target.folderId
+      items.push(
+        { label: '在此新建文档', onClick: () => void createNew(fid) },
+        { label: '上传到此', onClick: () => void uploadFiles(fid) },
+        { label: '添加网页到此', onClick: () => addWeb(fid) },
+        { label: '新建子文件夹', onClick: () => void createFolder(fid) },
+        'separator',
+        { label: '重命名', onClick: () => fid && setEditReq({ key: `f:${fid}`, name: target.name }) },
+        { label: '删除', danger: true, onClick: () => fid && confirmDeleteFolder(fid, target.name) }
+      )
+    }
+    setCtxMenu({ x, y, items })
+  }
+
+  const openRootMenu = (x: number, y: number) =>
+    openContextMenu({ kind: 'folder', folderId: null, name: '默认', isDefault: true }, x, y)
 
   const selectModel = async (id: string) => {
     const sep = id.indexOf(':')
@@ -336,6 +389,41 @@ export function App() {
     [tree, docs]
   )
 
+  // 统一文件树：默认节点（folderId=null 的未归类文档）+ 各文件夹（含其子文件夹与文档）。
+  const fileTree = useMemo<FileNode[]>(() => {
+    // 网页爬取的文档正文是 markdown，按 .md 展示；其余按真实类型补扩展名。
+    const displayType = (type: DocType): DocType => (type === 'web' ? 'md' : type)
+    const withExt = (name: string, type: DocType) => {
+      const ext = type === 'md' ? '.md' : type === 'txt' ? '.txt' : type === 'pdf' ? '.pdf' : ''
+      return ext && !name.toLowerCase().endsWith(ext) ? `${name}${ext}` : name
+    }
+    const docNodes = (fid: string | null): FileNode[] =>
+      docs
+        .filter((d) => d.folderId === fid)
+        .map((d) => {
+          const t = displayType(d.type)
+          return { kind: 'doc' as const, id: d.id, name: withExt(d.name, t), docType: t }
+        })
+    const folderToNode = (f: TreeNode): FileNode => ({
+      kind: 'folder',
+      folderId: f.id,
+      name: f.name,
+      isDefault: false,
+      docCount: f.docCount,
+      children: [...f.children.map(folderToNode), ...docNodes(f.id)]
+    })
+    const rootDocs = docNodes(null)
+    const defaultNode: FileNode = {
+      kind: 'folder',
+      folderId: null,
+      name: '默认',
+      isDefault: true,
+      docCount: rootDocs.length,
+      children: rootDocs
+    }
+    return [defaultNode, ...tree.map(folderToNode)]
+  }, [tree, docs])
+
   const messages = convo.map((t) =>
     t.kind === 'user'
       ? { id: t.id, role: 'user' as const, content: t.content }
@@ -346,16 +434,17 @@ export function App() {
     setConvo((c) => [...c, { kind: 'user', id: globalThis.crypto.randomUUID(), content: question }])
     useChatStore.getState().setError('')
     // 懒创建：当前没有会话时先建一个。
-    let sid = sessionId
+    let sid: string | null = sessionId
     if (!sid) {
       const cr = await chatApi.createSession()
       if (!isOk(cr)) {
         useChatStore.getState().setError('无法创建会话')
         return
       }
-      sid = cr.data.id
+      sid = (cr.data as { id: string }).id
       setSessionId(sid)
     }
+    if (!sid) return
     setAsking(true)
     try {
       const r = (await chatApi.ask({ sessionId: sid, question, scope })) as
@@ -409,7 +498,7 @@ export function App() {
     if (!isOk(r)) return
     await loadTrash()
     void refreshTree()
-    void loadDocs(folderId)
+    refreshAll()
   }
 
   const purgeTrash = async (id: string) => {
@@ -422,7 +511,7 @@ export function App() {
     for (const id of ids) await trashApi.restore(id)
     await loadTrash()
     void refreshTree()
-    void loadDocs(folderId)
+    refreshAll()
   }
 
   const purgeMany = async (ids: string[]) => {
@@ -469,32 +558,37 @@ export function App() {
 
       <div className="layout">
         <aside data-testid="pane-tree" className="pane tree">
-          <div className="tree-toolbar">
-            <button onClick={createFolder}>新建文件夹</button>
-            <button onClick={openTrash}>回收站</button>
-            <button onClick={() => setShowSettings(true)}>设置</button>
+          <div className="tree-header">
+            <span className="tree-title">文档库</span>
+            <button
+              className="header-btn primary"
+              title="新建文档 / 文件夹 / 上传 / 网页"
+              onClick={(e) => openRootMenu(e.clientX, e.clientY)}
+            >
+              ＋ 新建
+            </button>
+            <button className="header-btn" onClick={openTrash}>
+              回收站
+            </button>
+            <button className="header-btn" onClick={() => setShowSettings(true)}>
+              设置
+            </button>
           </div>
-          <button
-            className={`tree-root-entry${folderId === null ? ' active' : ''}`}
-            onClick={() => selectFolder(null)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault()
-              const docId = e.dataTransfer.getData('text/doc-id')
-              if (docId) void moveDocTo(docId, null)
-            }}
-          >
-            全部文档
-          </button>
-          <FolderTree
-            nodes={tree}
+          <FileTree
+            nodes={fileTree}
             expanded={expanded}
             onToggle={toggle}
-            onSelect={selectFolder}
-            onDelete={(id) => folderApi.delete(id).then(() => refreshTree())}
-            onRename={(id, currentName) => void renameFolder(id, currentName)}
+            selectedFolderId={folderId}
+            openDocId={openDoc?.id ?? null}
+            onSelectFolder={selectFolder}
+            onOpenDoc={(id) => void openDocument(id)}
+            onRenameFolder={(id, name) => void renameFolder(id, name)}
+            onRenameDoc={(id, name) => void renameDoc(id, name)}
             onMoveDoc={(docId, fid) => void moveDocTo(docId, fid)}
-            selectedId={folderId}
+            onContextMenu={openContextMenu}
+            onBackgroundContextMenu={openRootMenu}
+            editRequest={editReq}
+            onEditDone={() => setEditReq(null)}
           />
           <SearchPanel
             onSearch={async (q) => {
@@ -506,12 +600,6 @@ export function App() {
         </aside>
 
         <main data-testid="pane-main" className="pane main">
-          <div className="toolbar">
-            <button onClick={uploadFiles}>上传</button>
-            <button onClick={createNew}>新建</button>
-            <button onClick={() => setShowWeb(true)}>添加网页</button>
-          </div>
-
           {showTrash && (
             <div data-testid="trash-panel" className="settings-overlay">
               <button onClick={() => setShowTrash(false)}>关闭</button>
@@ -549,11 +637,11 @@ export function App() {
 
           {showWeb && (
             <AddWebDialog
-              onCrawl={(url) => crawlApi.fromUrl({ url, folderId })}
-              onInteractiveCrawl={(url) => crawlApi.fromUrlInteractive({ url, folderId })}
+              onCrawl={(url) => crawlApi.fromUrl({ url, folderId: webTarget })}
+              onInteractiveCrawl={(url) => crawlApi.fromUrlInteractive({ url, folderId: webTarget })}
               onClose={() => {
                 setShowWeb(false)
-                void loadDocs(folderId)
+                refreshAll()
               }}
             />
           )}
@@ -594,33 +682,13 @@ export function App() {
               )}
             </div>
           ) : (
-            <ul className="doc-list">
-              {docs.map((d) => (
-                <li
-                  key={d.id}
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData('text/doc-id', d.id)}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    setMoveMenu({ docId: d.id, x: e.clientX, y: e.clientY })
-                  }}
-                >
-                  <span className="doc-name" onClick={() => void openDocument(d.id)}>
-                    {d.name}
-                  </span>
-                  <button aria-label={`移动 ${d.name}`} onClick={(e) => setMoveMenu({ docId: d.id, x: e.clientX, y: e.clientY })}>
-                    移动
-                  </button>
-                  <button aria-label={`重命名 ${d.name}`} onClick={() => void renameDoc(d.id, d.name)}>
-                    改名
-                  </button>
-                  <button aria-label={`删除 ${d.name}`} onClick={() => void deleteDoc(d.id, d.name)}>
-                    删除
-                  </button>
-                </li>
-              ))}
-              {docs.length === 0 && <p className="empty">该目录暂无文档</p>}
-            </ul>
+            <div className="main-empty">
+              <p>
+                从左侧选择一个文档查看。
+                <br />
+                新建 / 上传 / 添加网页：点左上「＋ 新建」，或右键文件夹。
+              </p>
+            </div>
           )}
         </main>
 
@@ -660,30 +728,13 @@ export function App() {
         />
       )}
 
-      {moveMenu && (
-        <div
-          className="context-menu-backdrop"
-          onClick={() => setMoveMenu(null)}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            setMoveMenu(null)
-          }}
-        >
-          <div
-            className="context-menu"
-            style={{ top: moveMenu.y, left: moveMenu.x }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="context-menu-title">移动到</div>
-            <button onClick={() => void moveDocTo(moveMenu.docId, null)}>全部文档（根目录）</button>
-            {flattenFolders(tree).map((f) => (
-              <button key={f.id} onClick={() => void moveDocTo(moveMenu.docId, f.id)}>
-                {f.name}
-              </button>
-            ))}
-            {tree.length === 0 && <div className="context-menu-empty">暂无文件夹</div>}
-          </div>
-        </div>
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={ctxMenu.items}
+          onClose={() => setCtxMenu(null)}
+        />
       )}
     </div>
   )

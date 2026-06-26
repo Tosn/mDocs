@@ -4,6 +4,7 @@ const bridge = (): MDocsApi => (window as unknown as { api: MDocsApi }).api
 
 export const documentApi = {
   listByFolder: (folderId: string | null) => bridge().document.listByFolder(folderId),
+  listAll: () => bridge().document.listAll(),
   get: (id: string) => bridge().document.get(id),
   getFileUrl: (id: string) => bridge().document.getFileUrl(id),
   pickPaths: (opts: { directory?: boolean }) => bridge().document.pickPaths(opts),

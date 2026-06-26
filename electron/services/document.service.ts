@@ -44,6 +44,11 @@ function hash(text: string): string {
   return createHash('sha256').update(text).digest('hex')
 }
 
+/** 从文件名扩展名推断类型（.md/.txt/.pdf）；无可识别扩展名返回 null。 */
+function detectType(name: string): DocType | null {
+  return EXT_TYPE[extname(name).toLowerCase()] ?? null
+}
+
 function rowToDoc(r: DocRow): Document {
   return {
     id: r.id,
@@ -139,7 +144,7 @@ export function createDoc(
     id: randomUUID(),
     folderId: input.folderId,
     name,
-    type: 'md',
+    type: detectType(name) ?? 'md', // 按输入扩展名定类型（test.txt→txt），否则默认 md
     filePath: '',
     sourceUrl: null,
     contentText: text,
@@ -179,7 +184,18 @@ export function renameDoc(db: Database.Database, id: string, name: string): Resu
   if (nameExists(db, cur.folder_id, newName, id)) return err('E_DUPLICATE', '同级已存在同名文档')
 
   const now = Date.now()
-  db.prepare(`UPDATE documents SET name = ?, updated_at = ? WHERE id = ?`).run(newName, now, id)
+  // 新名带可识别扩展名则同步更新类型；无扩展名则保持原类型（避免给 pdf 去后缀就变 md）。
+  const t = detectType(newName)
+  if (t) {
+    db.prepare(`UPDATE documents SET name = ?, type = ?, updated_at = ? WHERE id = ?`).run(
+      newName,
+      t,
+      now,
+      id
+    )
+  } else {
+    db.prepare(`UPDATE documents SET name = ?, updated_at = ? WHERE id = ?`).run(newName, now, id)
+  }
   db.prepare(`UPDATE documents_fts SET name = ? WHERE document_id = ?`).run(newName, id)
   return ok(rowToDoc(getDocRow(db, id)!))
 }

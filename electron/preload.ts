@@ -16,6 +16,7 @@ export function buildApi(invoke: Invoke, on: Subscribe) {
     },
     document: {
       listByFolder: (folderId: string | null) => invoke(CHANNELS.document.listByFolder, folderId),
+      listAll: () => invoke(CHANNELS.document.listAll),
       get: (id: string) => invoke(CHANNELS.document.get, id),
       getFileUrl: (id: string) => invoke(CHANNELS.document.getFileUrl, id),
       pickPaths: (opts: { directory?: boolean }) => invoke(CHANNELS.document.pickPaths, opts),
