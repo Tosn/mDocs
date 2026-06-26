@@ -16,7 +16,10 @@ export function openDb(filename = ':memory:'): Database.Database {
   db.pragma('foreign_keys = ON')
 
   // 加载向量扩展（chunk_vec 依赖它）。
-  sqliteVec.load(db)
+  // sqlite-vec 是原生扩展，loadExtension 走原生 dlopen，不经 Electron 的 asar 重定向；
+  // 打包后必须把 app.asar 路径换成 app.asar.unpacked 的真实路径（配合 asarUnpack）。
+  const extPath = sqliteVec.getLoadablePath().replace('app.asar', 'app.asar.unpacked')
+  db.loadExtension(extPath)
 
   runMigrations(db)
 

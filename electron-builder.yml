@@ -7,7 +7,13 @@ files:
   - out/**/*
   - package.json
 asarUnpack:
+  # 原生模块/扩展必须放在 asar 外（dlopen 不能从 asar 内加载）。
   - "**/*.node"
+  - "**/*.dylib"
+  - "**/*.so"
+  - "**/*.dll"
+  # sqlite-vec 的平台原生包（含 vec0.dylib/.so/.dll）。
+  - "**/node_modules/sqlite-vec-*/**"
 mac:
   target: dmg
   category: public.app-category.productivity
