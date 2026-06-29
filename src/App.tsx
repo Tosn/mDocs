@@ -681,8 +681,12 @@ export function App() {
 
           {showWeb && (
             <AddWebDialog
-              onCrawl={(url) => crawlApi.fromUrl({ url, folderId: webTarget })}
-              onInteractiveCrawl={(url) => crawlApi.fromUrlInteractive({ url, folderId: webTarget })}
+              onCrawl={(url) =>
+                crawlApi.fromUrlInteractive({ url, folderId: webTarget, dynamic: false })
+              }
+              onInteractiveCrawl={(url) =>
+                crawlApi.fromUrlInteractive({ url, folderId: webTarget, dynamic: true })
+              }
               onClose={() => {
                 setShowWeb(false)
                 refreshAll()

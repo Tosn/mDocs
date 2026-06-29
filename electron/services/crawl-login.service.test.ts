@@ -58,6 +58,18 @@ describe('crawl-login.service (interactive)', () => {
     expect(opened).toBe(false)
   })
 
+  it('passes the dynamic flag to capturePage', async () => {
+    let seenDynamic: boolean | undefined = undefined
+    const deps: InteractiveDeps = {
+      capturePage: async (_url, dynamic) => {
+        seenDynamic = dynamic
+        return { html: sampleHtml, finalUrl: 'https://site.test/x' }
+      }
+    }
+    await fromUrlInteractive(db, { url: 'https://site.test/x', folderId: null, dynamic: true }, deps)
+    expect(seenDynamic).toBe(true)
+  })
+
   it('uses the final (post-redirect) url when provided', async () => {
     const deps: InteractiveDeps = {
       capturePage: async () => ({ html: sampleHtml, finalUrl: 'https://site.test/member/article-42' })

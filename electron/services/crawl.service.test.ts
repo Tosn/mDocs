@@ -147,6 +147,30 @@ describe('crawl.service', () => {
     expect(n.n).toBe(2)
   })
 
+  it('ingestWebDoc dynamic flag overrides URL-based parser selection', () => {
+    // 飞书 URL + dynamic:false → 走通用 Readability（而非飞书解析），按用户「静态」选择。
+    const r = ingestWebDoc(db, {
+      html: sampleHtml,
+      url: 'https://x.feishu.cn/docx/abc',
+      folderId: null,
+      dynamic: false
+    })
+    expect(isOk(r)).toBe(true)
+    if (isOk(r)) expect(r.data.contentText).toContain('meaningful paragraph')
+  })
+
+  it('ingestWebDoc dynamic:true falls back to Readability for non-feishu pages', () => {
+    // 动态模式但页面非飞书结构：飞书解析抽空 → 回退通用解析，仍能入库。
+    const r = ingestWebDoc(db, {
+      html: sampleHtml,
+      url: 'https://example.com/a',
+      folderId: null,
+      dynamic: true
+    })
+    expect(isOk(r)).toBe(true)
+    if (isOk(r)) expect(r.data.contentText).toContain('meaningful paragraph')
+  })
+
   it('fromUrl rejects an invalid url', async () => {
     const r = await fromUrl(db, { url: 'not a url', folderId: null })
     expect(r.ok).toBe(false)

@@ -1639,6 +1639,7 @@ textarea::placeholder {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 6px; /* 模型下拉与其 API Key 输入之间留间距 */
 }
 
 .settings-panel .api-key input {
@@ -1682,6 +1683,26 @@ textarea::placeholder {
 .add-web-dialog .actions button {
   flex: 1;
   min-width: 140px;
+}
+
+/* 取消按钮：紧凑、次要，不与抓取按钮等宽。 */
+.add-web-dialog .actions button.cancel {
+  flex: 0 0 auto;
+  min-width: 64px;
+  background: transparent;
+  border-color: var(--border);
+  color: var(--fg-subtle);
+}
+
+.add-web-dialog .actions button.cancel:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.add-web-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-subtle);
+  line-height: 1.5;
 }
 
 /* ============================================================

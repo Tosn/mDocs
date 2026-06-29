@@ -260,12 +260,23 @@ export function feishuToMarkdown(
 
 export function ingestWebDoc(
   db: Database.Database,
-  input: { html: string; url: string; folderId: string | null; storageDir?: string }
+  input: {
+    html: string
+    url: string
+    folderId: string | null
+    storageDir?: string
+    /** 动态爬取（飞书式结构化抽取）；省略时按 URL 自动判定飞书。 */
+    dynamic?: boolean
+  }
 ): Result<Document> {
-  // 飞书文档走专用抽取，其余站点用通用 Readability+turndown。
-  const conv = isFeishuUrl(input.url)
+  // 解析方式：dynamic 显式指定优先（true=飞书式结构化，false=通用 Readability）；
+  // 未指定时按 URL 自动判定飞书。
+  const useFeishu = input.dynamic ?? isFeishuUrl(input.url)
+  let conv = useFeishu
     ? feishuToMarkdown(input.html, input.url)
     : htmlToMarkdown(input.html, input.url)
+  // 动态模式但页面非飞书结构（抽取失败）：回退通用 Readability，保证动态爬取对其他动态页也可用。
+  if (useFeishu && !isOk(conv)) conv = htmlToMarkdown(input.html, input.url)
   if (!isOk(conv)) return err(conv.error.code, conv.error.message)
 
   const md = conv.data.markdown
