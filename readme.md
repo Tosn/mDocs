@@ -18,6 +18,19 @@ pnpm build        # 三端打包
 > - 跑应用前若启动报 `NODE_MODULE_VERSION` 不匹配：`pnpm rebuild:sqlite`（拉 Electron 预编译）。
 > - 跑测试前：`pnpm test`（`pretest` 会自动切回 Node ABI）。
 
+### 版本与下载
+
+当前版本 **v0.1.0**。安装包由 GitHub Actions 自动构建（未做代码签名，见下方「首次打开」）：
+仓库 → **Actions → Build** → 点一次成功的 run → 页面底部 **Artifacts** 区下载对应压缩包（解压后即安装包）。
+
+| 你的设备 | 下载的 Artifact | 安装包 |
+|----------|----------------|--------|
+| **Intel 芯片 Mac** | `mdocs-macos-13` | `mDocs-0.1.0.dmg`（x64） |
+| **Apple 芯片 Mac**（M1/M2/M3…） | `mdocs-macos-latest` | `mDocs-0.1.0-arm64.dmg` |
+| **Windows** | `mdocs-windows-latest` | `mDocs-0.1.0-setup.exe` |
+
+> **不确定 Mac 是哪种芯片？** 左上角 苹果菜单 → 「关于本机」看「芯片/处理器」，或终端执行 `uname -m`（`arm64` = Apple 芯片，`x86_64` = Intel）。装错架构会提示「这台 Mac 不支持此应用程序」。
+
 ### 下载安装包首次打开（未签名，需手动放行）
 
 GitHub Actions 打出的安装包**未做代码签名 / 公证**，从网上下载后系统会拦截：
