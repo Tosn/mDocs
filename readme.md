@@ -25,9 +25,11 @@ pnpm build        # 三端打包
 
 | 你的设备 | 下载的 Artifact | 安装包 |
 |----------|----------------|--------|
-| **Intel 芯片 Mac** | `mdocs-macos-13` | `mDocs-0.1.0.dmg`（x64） |
+| **Intel 芯片 Mac** | `mdocs-macos-latest` | `mDocs-0.1.0.dmg`（x64） |
 | **Apple 芯片 Mac**（M1/M2/M3…） | `mdocs-macos-latest` | `mDocs-0.1.0-arm64.dmg` |
 | **Windows** | `mdocs-windows-latest` | `mDocs-0.1.0-setup.exe` |
+
+> macOS 的 Intel(x64) 与 Apple(arm64) 两个 dmg 打在**同一个** `mdocs-macos-latest` 压缩包里，解压后按上表文件名选对应架构的即可。
 
 > **不确定 Mac 是哪种芯片？** 左上角 苹果菜单 → 「关于本机」看「芯片/处理器」，或终端执行 `uname -m`（`arm64` = Apple 芯片，`x86_64` = Intel）。装错架构会提示「这台 Mac 不支持此应用程序」。
 

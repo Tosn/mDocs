@@ -63,6 +63,10 @@
       "electron",
       "esbuild",
       "sqlite-vec"
-    ]
+    ],
+    "supportedArchitectures": {
+      "os": ["darwin", "win32"],
+      "cpu": ["x64", "arm64"]
+    }
   }
 }
