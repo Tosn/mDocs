@@ -4,6 +4,7 @@
   "description": "桌面端文档查看 / 搜索 / AI 问答工具",
   "main": "out/main/index.js",
   "license": "MIT",
+  "packageManager": "pnpm@10.15.0",
   "scripts": {
     "dev": "electron-builder install-app-deps && electron-vite dev",
     "build": "electron-vite build",
