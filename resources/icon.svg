@@ -1,0 +1,35 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B8CFF"/>
+      <stop offset="1" stop-color="#7B5CFF"/>
+    </linearGradient>
+    <linearGradient id="spark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFE08A"/>
+      <stop offset="1" stop-color="#FBB03B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角方形底 -->
+  <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230" fill="url(#bg)"/>
+
+  <!-- 后层文档（体现多文档聚合） -->
+  <rect x="266" y="250" width="420" height="470" rx="44" ry="44" fill="#FFFFFF" opacity="0.35"/>
+  <rect x="238" y="286" width="420" height="470" rx="44" ry="44" fill="#FFFFFF" opacity="0.55"/>
+
+  <!-- 前层文档 -->
+  <rect x="300" y="300" width="424" height="452" rx="46" ry="46" fill="#FFFFFF"/>
+
+  <!-- 文档文本行 -->
+  <rect x="356" y="372" width="312" height="26" rx="13" fill="#C3D0FF"/>
+  <rect x="356" y="430" width="264" height="26" rx="13" fill="#C3D0FF"/>
+  <rect x="356" y="488" width="312" height="26" rx="13" fill="#DCE3FF"/>
+  <rect x="356" y="546" width="196" height="26" rx="13" fill="#DCE3FF"/>
+
+  <!-- AI 星芒（主） -->
+  <path d="M624 566 L651 651 L736 678 L651 705 L624 790 L597 705 L512 678 L597 651 Z" fill="url(#spark)"/>
+  <circle cx="624" cy="678" r="20" fill="#FFFFFF" opacity="0.95"/>
+
+  <!-- AI 星芒（副，点缀） -->
+  <path d="M708 470 L719 505 L754 516 L719 527 L708 562 L697 527 L662 516 L697 505 Z" fill="url(#spark)"/>
+</svg>
