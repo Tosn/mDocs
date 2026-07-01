@@ -18,6 +18,23 @@ pnpm build        # 三端打包
 > - 跑应用前若启动报 `NODE_MODULE_VERSION` 不匹配：`pnpm rebuild:sqlite`（拉 Electron 预编译）。
 > - 跑测试前：`pnpm test`（`pretest` 会自动切回 Node ABI）。
 
+### 下载安装包首次打开（未签名，需手动放行）
+
+GitHub Actions 打出的安装包**未做代码签名 / 公证**，从网上下载后系统会拦截：
+
+**macOS**（拖入「应用程序」后图标带「禁止」标记、双击打不开）：
+```bash
+# 去掉「隔离」标记
+sudo xattr -dr com.apple.quarantine /Applications/mDocs.app
+# 若仍打不开（Apple Silicon），再补一个本地 ad-hoc 签名
+codesign --force --deep --sign - /Applications/mDocs.app
+```
+之后正常从启动台/应用程序打开即可。
+
+**Windows**（双击 `.exe` 弹出 SmartScreen 蓝色警告）：点「**更多信息 → 仍要运行**」即可安装，不影响使用。
+
+> 正式对外分发需 Apple 开发者账号做签名+公证 / Windows 代码签名证书；仅自用走上面的手动放行即可。
+
 ---
 
 ## 二、界面总览
